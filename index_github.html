@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0c">
+<title>Deutschrap – Der Zeitstrahl</title>
+<style>
+:root{--bg:#0b0b0c;--panel:#17171a;--line:#2a2a2f;--fg:#f4f1ea;--dim:#8d8d96;--gelb:#ffd400;--pink:#ff3d81}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{display:flex;flex-direction:column;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow:hidden}
+header{text-align:center;letter-spacing:.28em;font-size:12px;color:var(--gelb);font-weight:800;text-transform:uppercase}
+header small{display:block;color:var(--dim);letter-spacing:.18em;font-weight:600;margin-top:4px}
+main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0}
+.screen[hidden]{display:none}
+.screen{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:16px}
+button{font:inherit;border:0;cursor:pointer;color:var(--fg)}
+.big{width:100%;padding:18px;border-radius:14px;background:var(--gelb);color:#111;font-weight:800;font-size:18px;letter-spacing:.04em}
+.big:active{transform:scale(.98)}
+.ghost{background:var(--panel);border:1px solid var(--line);padding:13px 16px;border-radius:12px;font-size:15px;width:100%}
+.row{display:flex;gap:10px;width:100%}
+.row>*{flex:1}
+.vinyl{width:min(64vw,260px);aspect-ratio:1;border-radius:50%;background:
+ radial-gradient(circle,var(--gelb) 0 17%,#111 17.5% 19%,transparent 19.5%),
+ repeating-radial-gradient(circle,#161618 0 2px,#0c0c0d 2px 4px);border:2px solid #222;position:relative;box-shadow:0 10px 40px #000a}
+.vinyl::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,#fff0,#fff2 8%,#fff0 20%,#fff0 50%,#fff2 58%,#fff0 70%)}
+.vinyl.spin{animation:spin 2.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.vinyl.spin{animation:none}}
+#cam{position:relative;width:100%;aspect-ratio:3/4;max-height:58vh;background:#000;border-radius:18px;overflow:hidden;border:1px solid var(--line)}
+#cam video{width:100%;height:100%;object-fit:cover}
+#cam .frame{position:absolute;inset:18% 14%;border:3px solid var(--gelb);border-radius:22px;box-shadow:0 0 0 999px #0008}
+#msg{color:var(--dim);font-size:14px;text-align:center;min-height:20px}
+#msg.err{color:var(--pink)}
+.bar{width:100%;height:6px;background:var(--panel);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--gelb)}
+.time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;display:flex;justify-content:space-between;width:100%}
+#player{position:fixed;left:0;right:0;bottom:0;height:152px;opacity:0;pointer-events:none;z-index:5;padding:0 8px}
+#player.show{opacity:1;pointer-events:auto;z-index:20}
+#player iframe{width:100%;height:152px;border:0;border-radius:12px}
+body.revealed main{padding-bottom:160px}
+input[type=text]{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:15px}
+.hint{font-size:12px;color:var(--dim);text-align:center;line-height:1.5}
+.tag{font-size:11px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
+</style>
+</head>
+<body>
+<header>Deutschrap · Der Zeitstrahl<small>Karte scannen · hören · einordnen</small></header>
+<main>
+
+<section class="screen" id="s-start">
+  <div class="vinyl"></div>
+  <button class="big" id="b-scan">KARTE SCANNEN</button>
+  <div class="row">
+    <button class="ghost" id="b-photo">Foto aufnehmen</button>
+    <button class="ghost" id="b-paste">Link eingeben</button>
+  </div>
+  <div id="pastebox" hidden class="row" style="flex-direction:column">
+    <input type="text" id="t-link" placeholder="https://open.spotify.com/track/…" autocapitalize="off" autocomplete="off">
+    <button class="ghost" id="b-go">Abspielen</button>
+  </div>
+  <input type="file" id="f-photo" accept="image/*" capture="environment" hidden>
+  <div id="msg"></div>
+</section>
+
+<section class="screen" id="s-cam" hidden>
+  <div id="cam"><video id="v" playsinline muted></video><div class="frame"></div></div>
+  <div id="msg2" class="hint">QR-Code in den Rahmen halten</div>
+  <button class="ghost" id="b-cancel">Abbrechen</button>
+</section>
+
+<section class="screen" id="s-play" hidden>
+  <div class="vinyl spin" id="vinyl"></div>
+  <div class="tag" id="status">Lädt …</div>
+  <div class="bar"><i id="prog"></i></div>
+  <div class="time"><span id="tpos">0:00</span><span id="tdur">0:00</span></div>
+  <button class="big" id="b-toggle">▶ ABSPIELEN</button>
+  <div class="row">
+    <button class="ghost" id="b-restart">Von vorn</button>
+    <button class="ghost" id="b-reveal">Auflösen</button>
+  </div>
+  <button class="ghost" id="b-next">Nächste Karte</button>
+  <div class="hint" id="hint2">Titel, Cover und Jahr bleiben verborgen, bis du „Auflösen“ tippst.</div>
+</section>
+
+</main>
+<div id="player"><div id="embed"></div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+(function(){
+'use strict';
+const $=id=>document.getElementById(id);
+const screens={start:$('s-start'),cam:$('s-cam'),play:$('s-play')};
+function show(n){for(const k in screens)screens[k].hidden=k!==n;}
+function say(t,err){const m=$('msg');m.textContent=t||'';m.className=err?'err':'';}
+
+/* ---- Track-ID aus QR/Link ---- */
+function parseTrack(text){
+  if(!text)return null;
+  let m=String(text).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(?:embed\/)?track\/([A-Za-z0-9]{22})/);
+  if(m)return m[1];
+  m=String(text).match(/spotify:track:([A-Za-z0-9]{22})/);
+  return m?m[1]:null;
+}
+
+/* ---- Spotify iFrame API ---- */
+let ctrl=null,apiReady=false,pending=null,loaded=null,duration=0,playing=false,gotUpdate=false;
+window.onSpotifyIframeApiReady=function(API){
+  apiReady=true;
+  API.createController($('embed'),{width:'100%',height:152,uri:pending?('spotify:track:'+pending):'spotify:track:7A4KdLy1DXOOC5fhIdDuHz'},function(c){
+    ctrl=c;
+    c.addListener('ready',function(){ if(pending)status('Bereit'); });
+    c.addListener('playback_update',onUpdate);
+  });
+};
+(function(){const s=document.createElement('script');s.src='https://open.spotify.com/embed/iframe-api/v1';s.async=true;
+  s.onerror=function(){say('Spotify konnte nicht geladen werden. Internet prüfen.',true)};document.head.appendChild(s);})();
+
+function status(t){$('status').textContent=t}
+function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function onUpdate(e){
+  const d=e.data;gotUpdate=true;
+  duration=d.duration||duration;
+  playing=!d.isPaused&&!d.isBuffering;
+  $('prog').style.width=duration?Math.min(100,d.position/duration*100)+'%':'0';
+  $('tpos').textContent=fmt(d.position);$('tdur').textContent=fmt(duration);
+  $('b-toggle').textContent=d.isPaused?'▶ WEITER':'❚❚ PAUSE';
+  $('vinyl').classList.toggle('spin',!d.isPaused);
+  status(d.isBuffering?'Lädt …':d.isPaused?'Pausiert':'Läuft');
+  if(duration&&d.position>=duration-300){status('Zu Ende');}
+}
+
+function playTrack(id){
+  stopCam();
+  pending=id;loaded=id;gotUpdate=false;duration=0;
+  $('player').classList.remove('show');document.body.classList.remove('revealed');
+  $('b-reveal').textContent='Auflösen';
+  $('prog').style.width='0';$('tpos').textContent='0:00';$('tdur').textContent='0:00';
+  $('b-toggle').textContent='▶ ABSPIELEN';status('Lädt …');
+  show('play');
+  if(ctrl){ctrl.loadUri('spotify:track:'+id);setTimeout(function(){try{ctrl.play()}catch(e){}},700);}
+  else if(!apiReady){status('Verbinde mit Spotify …');}
+  if(navigator.vibrate)try{navigator.vibrate(60)}catch(e){}
+}
+$('b-toggle').onclick=function(){if(!ctrl)return;ctrl.togglePlay();};
+$('b-restart').onclick=function(){if(!ctrl)return;ctrl.seek(0);setTimeout(function(){ctrl.resume&&ctrl.resume();},50);};
+$('b-reveal').onclick=function(){
+  const on=!$('player').classList.contains('show');
+  $('player').classList.toggle('show',on);document.body.classList.toggle('revealed',on);
+  this.textContent=on?'Verbergen':'Auflösen';
+};
+$('b-next').onclick=function(){try{ctrl&&ctrl.pause()}catch(e){}show('start');say('');startCam();};
+
+/* ---- Kamera-Scan ---- */
+let stream=null,raf=0,detector=null,canvas=document.createElement('canvas'),cx=canvas.getContext('2d',{willReadFrequently:true}),lastTry=0;
+async function startCam(){
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){say('Kamera nicht verfügbar. Nutze „Foto aufnehmen“.',true);return;}
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+  }catch(e){say('Kamerazugriff verweigert. Erlaube die Kamera oder nutze „Foto aufnehmen“.',true);return;}
+  const v=$('v');v.srcObject=stream;await v.play().catch(function(){});
+  if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']});}catch(e){detector=null;}}
+  show('cam');$('msg2').textContent='QR-Code in den Rahmen halten';
+  loop();
+}
+function stopCam(){cancelAnimationFrame(raf);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
+async function loop(){
+  const v=$('v');
+  if(!stream)return;
+  const now=performance.now();
+  if(v.readyState>=2&&now-lastTry>120){
+    lastTry=now;
+    let text=null;
+    try{
+      if(detector){const r=await detector.detect(v);if(r.length)text=r[0].rawValue;}
+      else{
+        const w=v.videoWidth,h=v.videoHeight,sc=Math.min(1,640/Math.max(w,h));
+        canvas.width=Math.round(w*sc);canvas.height=Math.round(h*sc);
+        cx.drawImage(v,0,0,canvas.width,canvas.height);
+        const im=cx.getImageData(0,0,canvas.width,canvas.height);
+        const q=jsQR(im.data,im.width,im.height,{inversionAttempts:'dontInvert'});
+        if(q)text=q.data;
+      }
+    }catch(e){}
+    if(text){const id=parseTrack(text);if(id){playTrack(id);return;}$('msg2').textContent='Das ist keine Song-Karte.';}
+  }
+  raf=requestAnimationFrame(loop);
+}
+$('b-scan').onclick=function(){say('');startCam();};
+$('b-cancel').onclick=function(){stopCam();show('start');};
+
+/* ---- Foto & Link ---- */
+$('b-photo').onclick=function(){$('f-photo').click();};
+$('f-photo').onchange=async function(){
+  const f=this.files[0];this.value='';if(!f)return;
+  const url=URL.createObjectURL(f);const img=new Image();
+  img.onload=function(){
+    let text=null;
+    for(const sc of [1,0.5,0.3]){
+      const w=Math.round(img.naturalWidth*Math.min(1,1600/img.naturalWidth)*sc),h=Math.round(img.naturalHeight*(w/img.naturalWidth));
+      canvas.width=w;canvas.height=h;cx.drawImage(img,0,0,w,h);
+      const q=jsQR(cx.getImageData(0,0,w,h).data,w,h,{inversionAttempts:'attemptBoth'});
+      if(q){text=q.data;break;}
+    }
+    URL.revokeObjectURL(url);
+    const id=parseTrack(text);
+    if(id)playTrack(id);else say('Kein QR-Code erkannt. Näher ran und gerade fotografieren.',true);
+  };
+  img.onerror=function(){say('Bild konnte nicht gelesen werden.',true)};
+  img.src=url;
+};
+$('b-paste').onclick=function(){const b=$('pastebox');b.hidden=!b.hidden;if(!b.hidden)$('t-link').focus();};
+$('b-go').onclick=function(){const id=parseTrack($('t-link').value);if(id)playTrack(id);else say('Das ist kein Spotify-Song-Link.',true);};
+$('t-link').addEventListener('keydown',function(e){if(e.key==='Enter')$('b-go').click();});
+
+/* Test-Hook */
+window.__app={parseTrack:parseTrack,playTrack:playTrack};
+})();
+</script>
+</body>
+</html>
