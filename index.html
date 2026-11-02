@@ -115,6 +115,7 @@ a{color:var(--gelb)}
 </section>
 
 </main>
+<label id="hapt" aria-hidden="true" style="position:fixed;left:-99px;top:0;width:1px;height:1px;overflow:hidden;opacity:0"><input type="checkbox" switch tabindex="-1"></label>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 (function(){
@@ -176,7 +177,10 @@ async function api(method,path,body){
 function needLogin(){show('setup');}
 
 /* ---------- Wiedergabe ---------- */
-let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false,isPlaying=false,mode='pause',wake=false,woke=null;
+let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false,isPlaying=false,mode='pause',wake=false,woke=null,silent=false,silTimer=0,repeatOn=false,resumeAt=0;
+/* Stille-Tracks: halten Spotify im Hintergrund wach, statt zu pausieren */
+const SILENCE=['6gWSdJ0JS8hPUrKDUrgEwj','0vqOexC3BQ4wpFREmBoQqm'];
+function haptic(){try{$('hapt').click();}catch(e){}}
 function parseTrack(text){
   if(!text)return null;
   let m=String(text).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(?:embed\/)?track\/([A-Za-z0-9]{22})/);
@@ -193,11 +197,11 @@ function goWake(){wake=true;location.href='spotify:';}
 async function getDevices(){
   try{const r=await api('GET','/me/player/devices');const d=await r.json();return d.devices||[];}catch(e){return [];}
 }
-async function startTrack(id){
-  const uris=['spotify:track:'+id];
+async function startTrack(id,startMs){
+  const uris=['spotify:track:'+id],body={uris};if(startMs>0)body.position_ms=Math.round(startMs);
   let dev=null,last=0;
   for(let attempt=0;attempt<4;attempt++){
-    const r=await api('PUT','/me/player/play'+(dev?'?device_id='+dev:''),{uris});
+    const r=await api('PUT','/me/player/play'+(dev?'?device_id='+dev:''),body);
     last=r.status;
     if(r.ok||r.status===204)return;
     if(r.status===403)throw new Error('PREMIUM');
@@ -213,15 +217,15 @@ async function startTrack(id){
   }
   throw new Error('DEVICE404');
 }
-async function playTrack(id){
-  stopCam();clearInterval(poll);
-  current=id;lastItem=null;gotState=false;wake=false;isPlaying=false;
-  setReveal(false);
-  setBar(0);dur=0;pos=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';
+async function playTrack(id,startMs,keep){
+  stopCam();clearInterval(poll);clearTimeout(silTimer);
+  startMs=startMs||0;resumeAt=startMs;
+  if(!keep||current!==id){current=id;lastItem=null;setReveal(false);setBar(0);dur=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';}
+  gotState=false;wake=false;isPlaying=false;silent=false;pos=startMs;
   setMain('pause');status('Startet …');$('vinyl').classList.add('spin');
   pmsg('');$('errbtns').hidden=true;
   show('play');
-  try{await startTrack(id);}
+  try{await startTrack(id,startMs);if(repeatOn){repeatOn=false;api('PUT','/me/player/repeat?state=off').catch(function(){});}}
   catch(e){
     $('vinyl').classList.remove('spin');
     if(e.message==='NOLOGIN'){needLogin();return;}
@@ -254,29 +258,56 @@ function diagnose(id){
   pmsg(manual,'info');$('errbtns').hidden=false;
 }
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'&&wake&&current&&!gotState&&!screens.play.hidden){wake=false;setTimeout(function(){playTrack(current);},600);}
+  if(document.visibilityState==='visible'&&wake&&current&&!gotState&&!screens.play.hidden){wake=false;setTimeout(function(){playTrack(current,resumeAt,true);},600);}
 });
 async function refresh(){
   let r;
   try{r=await api('GET','/me/player');}
   catch(e){if(e.message==='NOLOGIN'){clearInterval(poll);needLogin();}else if(gotState)status('Keine Verbindung …','warn');return;}
+  if(silent)return;                                   /* Stille läuft: Zustand hält die App selbst */
   if(r.status!==200)return;
   let s;try{s=await r.json();}catch(e){return;}
-  if(!s.item||(s.item.id!==current&&!(s.item.linked_from&&s.item.linked_from.id===current)))return;
+  const mine=s.item&&(s.item.id===current||(s.item.linked_from&&s.item.linked_from.id===current));
+  if(!mine){
+    /* Unser Song ist vorbei und Spotify spielt etwas anderes (Autoplay) oder nichts: auf Stille umschalten */
+    if(gotState&&!silent&&pos>=dur-15000)enterSilence(dur,true);
+    return;
+  }
   if(!gotState){woke=null;pmsg('');$('errbtns').hidden=true;}
   lastItem=s.item;gotState=true;wake=false;isPlaying=!!s.is_playing;
   dur=s.item.duration_ms;pos=s.progress_ms||0;
+  if(!isPlaying&&pos>=dur-1500){enterSilence(dur,true);return;}
   if(!dragging){setBar(pos/dur);$('tpos').textContent=fmt(pos);}
   $('tdur').textContent=fmt(dur);
   setMain(isPlaying?'pause':'play');
   $('vinyl').classList.toggle('spin',isPlaying);
-  if(isPlaying)status('Läuft','ok');else status(pos>=dur-1500?'Zu Ende':'Pausiert');
+  if(isPlaying)status('Läuft','ok');else status('Pausiert');
   if(!$('reveal').hidden)fillReveal();
+  setMusic();
+}
+/* „Pause“ = stummer Track in Dauerschleife. Spotify spielt weiter und bleibt wach. */
+async function enterSilence(at,ended){
+  silent=true;isPlaying=false;resumeAt=ended?0:at;pos=at;
+  setMain('play');$('vinyl').classList.remove('spin');status(ended?'Zu Ende':'Pausiert');setMusic();
+  if(dur){setBar(at/dur);$('tpos').textContent=fmt(at);}
+  let ok=false;
+  for(const sid of SILENCE){
+    try{const r=await api('PUT','/me/player/play',{uris:['spotify:track:'+sid]});if(r.ok){ok=true;break;}}catch(e){break;}
+  }
+  if(ok){repeatOn=true;api('PUT','/me/player/repeat?state=track').catch(function(){});}
+  else{try{await api('PUT','/me/player/pause');}catch(e){}}
+  /* Nach 20 Minuten Pause ist das Spiel wohl vorbei: richtig pausieren, um Akku zu sparen */
+  clearTimeout(silTimer);
+  silTimer=setTimeout(async function(){
+    if(!silent)return;
+    try{await api('PUT','/me/player/pause');if(repeatOn){repeatOn=false;await api('PUT','/me/player/repeat?state=off');}}catch(e){}
+  },20*60*1000);
 }
 function setBar(f){f=Math.max(0,Math.min(1,f||0));$('prog').style.width=f*100+'%';$('knob').style.left=f*100+'%';}
 async function seekTo(ms){
   ms=Math.max(0,Math.min(dur?dur-500:ms,Math.round(ms)));
   pos=ms;setBar(dur?ms/dur:0);$('tpos').textContent=fmt(ms);
+  if(silent){resumeAt=ms;status('Pausiert');return;}  /* in der Pause nur die Stelle merken */
   try{await api('PUT','/me/player/seek?position_ms='+ms);}catch(e){}
   setTimeout(refresh,300);
 }
@@ -299,13 +330,20 @@ function fillReveal(){
   $('r-artist').textContent=lastItem.artists.map(a=>a.name).join(', ');
 }
 async function togglePlay(){
-  const want=!isPlaying;
-  try{await api('PUT','/me/player/'+(want?'play':'pause'),want?{}:undefined);isPlaying=want;}catch(e){}
+  if(!current)return;
+  if(isPlaying){await enterSilence(pos,false);return;}
+  if(!screens.play.hidden){await playTrack(current,resumeAt,true);return;}  /* mit Weck-Erkennung */
+  /* aus Kamera/Start heraus: leise fortsetzen, ohne den Bildschirm zu wechseln */
+  try{
+    await startTrack(current,resumeAt);clearTimeout(silTimer);
+    silent=false;isPlaying=true;
+    if(repeatOn){repeatOn=false;api('PUT','/me/player/repeat?state=off').catch(function(){});}
+  }catch(e){(screens.cam.hidden?say:function(t){$('msg2').textContent=t;})('Spotify reagiert nicht. Scanne die nächste Karte, die App weckt Spotify dann.');}
   setMusic();
 }
 $('b-toggle').onclick=async function(){
   if(mode==='wake'){goWake();return;}
-  await togglePlay();setMain(isPlaying?'pause':'play');setTimeout(refresh,250);
+  await togglePlay();
 };
 document.querySelectorAll('.mbtn').forEach(function(b){b.onclick=togglePlay;});
 /* Auflösen nur durch Gedrückthalten (0,6 s), Verbergen per Tipp */
@@ -324,13 +362,13 @@ function setReveal(on){
   ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,cancel);});
   b.addEventListener('contextmenu',function(e){e.preventDefault();});
   b.addEventListener('click',function(e){
-    if(b.dataset.just){delete b.dataset.just;return;}      /* Klick direkt nach dem Halten ignorieren */
+    if(b.dataset.just){delete b.dataset.just;haptic();return;}      /* Klick direkt nach dem Halten ignorieren */
     if(!$('reveal').hidden)setReveal(false);
     else if(e.detail===0)setReveal(true);                   /* Tastatur/VoiceOver */
   });
 })();
-$('b-retry').onclick=function(){if(current){woke=null;playTrack(current);}};
-$('b-next').onclick=function(){clearInterval(poll);setMusic();say('');startCam();};
+$('b-retry').onclick=function(){if(current){woke=null;playTrack(current,resumeAt,true);}};
+$('b-next').onclick=function(){setMusic();say('');startCam();};  /* Abfrage läuft weiter, damit das Song-Ende auch beim Scannen erkannt wird */
 
 /* ---------- Kamera-Scan ---------- */
 let stream=null,raf=0,detector=null,canvas=document.createElement('canvas'),cx=canvas.getContext('2d',{willReadFrequently:true}),lastTry=0;
