@@ -325,7 +325,7 @@ function fillReveal(){
   if(!lastItem)return;
   $('r-img').src=(lastItem.album.images[1]||lastItem.album.images[0]||{}).url||'';
   $('r-title').textContent=lastItem.name;
-  const yl=YEARS[lastItem.id],ys=((lastItem.album&&lastItem.album.release_date)||'').slice(0,4);
+  const yl=YEARS[current]||YEARS[lastItem.id]||(lastItem.linked_from&&YEARS[lastItem.linked_from.id]),ys=((lastItem.album&&lastItem.album.release_date)||'').slice(0,4);
   $('r-year').textContent=yl||ys||'';$('r-ysrc').textContent=yl?'':(ys?'laut Spotify':'');
   $('r-artist').textContent=lastItem.artists.map(a=>a.name).join(', ');
 }
