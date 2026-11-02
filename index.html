@@ -31,7 +31,8 @@ button{font:inherit;border:0;cursor:pointer;color:var(--fg)}
 .big{width:100%;padding:18px;border-radius:14px;background:var(--gelb);color:#0a1a00;font-weight:800;font-size:18px;letter-spacing:.04em}
 .big:active{transform:scale(.98)}
 .ghost{background:var(--panel);border:1px solid var(--line);padding:13px 16px;border-radius:12px;font-size:15px;width:100%}
-.row{display:flex;gap:10px;width:100%}.row>*{flex:1}
+.row{display:flex;gap:10px;width:100%}
+a.ghost{display:block;text-align:center;text-decoration:none;color:var(--fg)}.row>*{flex:1}
 .vinyl{width:min(60vw,250px);aspect-ratio:1;border-radius:50%;background:
  radial-gradient(circle,var(--gelb) 0 17%,#111 17.5% 19%,transparent 19.5%),
  repeating-radial-gradient(circle,#161618 0 2px,#0c0c0d 2px 4px);border:2px solid #222;position:relative;box-shadow:0 10px 40px #000a}
@@ -106,6 +107,7 @@ a{color:var(--gelb)}
     <div class="time"><span id="tpos">0:00</span><span class="tag" id="status">Lädt …</span><span id="tdur">0:00</span></div>
   </div>
     <div id="msg3" class="hint"></div>
+  <div class="row" id="errbtns" hidden><a class="ghost" href="spotify:">Spotify wecken</a><button class="ghost" id="b-retry">Nochmal</button></div>
 </section>
 
 </main>
@@ -174,48 +176,66 @@ function parseTrack(text){
 }
 function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 function pmsg(t,err){const m=$('msg3');m.textContent=t;m.style.color=err?'var(--pink)':'';}
+async function getDevices(){
+  try{const r=await api('GET','/me/player/devices');const d=await r.json();return d.devices||[];}catch(e){return [];}
+}
 async function startTrack(id){
   const uris=['spotify:track:'+id];
-  let r=await api('PUT','/me/player/play',{uris});
-  if(r.status===404){
-    const d=await (await api('GET','/me/player/devices')).json();
-    const list=d.devices||[];
+  let dev=null,last=0;
+  for(let attempt=0;attempt<4;attempt++){
+    const r=await api('PUT','/me/player/play'+(dev?'?device_id='+dev:''),{uris});
+    last=r.status;
+    if(r.ok||r.status===204)return;
+    if(r.status===403)throw new Error('PREMIUM');
+    if(r.status===401)throw new Error('NOLOGIN');
+    if(r.status!==404)throw new Error('HTTP '+r.status);
+    /* 404: kein aktives Gerät, Gerät schläft oder ist nicht erreichbar */
+    const list=await getDevices();
     const pick=list.find(x=>x.is_active)||list.find(x=>/smartphone/i.test(x.type))||list[0];
     if(!pick)throw new Error('NODEVICE');
-    await api('PUT','/me/player',{device_ids:[pick.id],play:false});
-    await sleep(700);
-    r=await api('PUT','/me/player/play',{device_id:pick.id,uris});
+    dev=pick.id;
+    try{await api('PUT','/me/player',{device_ids:[dev],play:false});}catch(e){}
+    await sleep(900+attempt*700);
   }
-  if(r.status===403)throw new Error('PREMIUM');
-  if(r.status===401)throw new Error('NOLOGIN');
-  if(!r.ok&&r.status!==204)throw new Error('HTTP '+r.status);
+  throw new Error('DEVICE404');
 }
 async function playTrack(id){
   stopCam();clearInterval(poll);
-  current=id;lastItem=null;gotState=false;
+  current=id;lastItem=null;gotState=false;wake=false;
   $('reveal').hidden=true;$('s-play').classList.remove('rev');$('b-reveal').textContent='Auflösen';
   setBar(0);dur=0;pos=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';
   $('b-toggle').textContent='❚❚ PAUSE';$('status').textContent='Startet …';
-  pmsg('');
+  pmsg('');$('errbtns').hidden=true;
   show('play');
   try{await startTrack(id);}
   catch(e){
     $('status').textContent='Fehler';$('vinyl').classList.remove('spin');
     if(e.message==='NOLOGIN'){needLogin();return;}
-    if(e.message==='NODEVICE')pmsg('Kein Gerät gefunden. Öffne die Spotify-App, spiele kurz irgendeinen Song an, komm hierher zurück und tippe „Nächste Karte“. Danach scanne nochmal.',true);
+    if(e.message==='NODEVICE'||e.message==='DEVICE404'){wake=true;pmsg('Spotify erreicht dein iPhone gerade nicht. Tippe auf „Spotify wecken“ und wechsle danach zurück zu Safari.',true);$('errbtns').hidden=false;}
     else if(e.message==='PREMIUM')pmsg('Spotify meldet: Premium nötig, oder die App ist nicht für dein Konto freigeschaltet (Dashboard → User Management).',true);
     else pmsg('Konnte nicht starten ('+e.message+').',true);
     return;
   }
   if(navigator.vibrate)try{navigator.vibrate(60)}catch(e){}
   poll=setInterval(refresh,1000);refresh();
+  setTimeout(function(){if(current===id&&!gotState)diagnose(id);},4500);
 }
+async function diagnose(id){
+  wake=true;
+  $('status').textContent='Spotify schläft';$('vinyl').classList.remove('spin');
+  pmsg('Dein iPhone hat Spotify eingeschlafen. Tippe auf „Spotify wecken“, warte kurz und wechsle zurück zu Safari. Der Song startet dann automatisch.',true);
+  $('errbtns').hidden=false;
+}
+var wake=false;
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='visible'&&wake&&current&&!gotState){wake=false;setTimeout(function(){playTrack(current);},600);}
+});
 async function refresh(){
   try{
     const r=await api('GET','/me/player');
     if(r.status!==200)return;
     const s=await r.json();
-    if(!s.item||s.item.id!==current)return;
+    if(!s.item||(s.item.id!==current&&!(s.item.linked_from&&s.item.linked_from.id===current)))return;
     lastItem=s.item;gotState=true;
     dur=s.item.duration_ms;pos=s.progress_ms||0;
     if(!dragging)setBar(pos/dur);
@@ -262,8 +282,9 @@ $('b-reveal').onclick=function(){
   const on=$('reveal').hidden;$('reveal').hidden=!on;$('s-play').classList.toggle('rev',on);this.textContent=on?'Verbergen':'Auflösen';
   if(on){fillReveal();if(!lastItem)refresh();}
 };
+$('b-retry').onclick=function(){if(current)playTrack(current);};
 $('b-next').onclick=async function(){
-  clearInterval(poll);try{await api('PUT','/me/player/pause');}catch(e){}
+  clearInterval(poll);
   show('start');say('');startCam();
 };
 
