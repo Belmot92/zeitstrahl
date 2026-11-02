@@ -37,7 +37,6 @@ a.ghost{display:block;text-align:center;text-decoration:none;color:var(--fg)}.ro
  radial-gradient(circle,var(--gelb) 0 17%,#111 17.5% 19%,transparent 19.5%),
  repeating-radial-gradient(circle,#161618 0 2px,#0c0c0d 2px 4px);border:2px solid #222;position:relative;box-shadow:0 10px 40px #000a}
 .vinyl::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,#fff0,#fff2 8%,#fff0 20%,#fff0 50%,#fff2 58%,#fff0 70%)}
-.s-play-v{}
 .vinyl.spin{animation:spin 2.4s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.vinyl.spin{animation:none}}
@@ -52,11 +51,17 @@ a.ghost{display:block;text-align:center;text-decoration:none;color:var(--fg)}.ro
 .bar b{position:absolute;top:50%;left:0;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--fg);box-shadow:0 1px 6px #000a}
 .time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;display:flex;justify-content:space-between;align-items:center;width:100%}
 .prog{width:100%;margin-top:-2px}
-.prog .barwrap{padding:8px 0}
-input[type=text]{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:15px}
-.hint{font-size:12px;color:var(--dim);text-align:center;line-height:1.5}
-.tag{font-size:11px;letter-spacing:.2em;color:var(--dim);text-transform:uppercase}
-.code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;width:100%;word-break:break-all;user-select:all}
+.prog .barwrap{padding:18px 0;margin:-10px 0}
+.hint{font-size:13px;color:var(--dim);text-align:center;line-height:1.5}
+.tag{font-size:12px;font-weight:600;letter-spacing:.16em;color:var(--dim);text-transform:uppercase}
+.tag.ok{color:var(--gelb)}.tag.warn{color:var(--pink)}
+#msg3.err{color:var(--pink)}#msg3.info{color:var(--fg)}
+.big.wake{background:var(--fg);color:#0b0b0c}
+#b-reveal{position:relative;isolation:isolate;overflow:hidden;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:manipulation;padding:8px 12px;line-height:1.15}
+#b-reveal small{display:block;font-size:10px;letter-spacing:.08em;color:var(--dim);margin-top:2px}
+#b-reveal::before{content:"";position:absolute;inset:0;z-index:-1;background:var(--gelb);opacity:.28;transform:scaleX(0);transform-origin:left}
+#b-reveal.hold::before{transform:scaleX(1);transition:transform .6s linear}
+.row .ghost{min-height:48px}
 #reveal{width:100%;max-height:100%;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
 #reveal img{width:min(34vw,128px,13dvh);aspect-ratio:1;border-radius:10px;object-fit:cover;box-shadow:0 6px 24px #000a}
 #reveal .yr{order:-1;font-size:min(14vw,50px);font-weight:800;color:var(--gelb);font-variant-numeric:tabular-nums;text-shadow:0 0 14px #6ee00a99;line-height:1}
@@ -76,13 +81,12 @@ a{color:var(--gelb)}
   <div class="stage"><div class="vwrap"><div class="vinyl"></div></div></div>
   <button class="big" id="b-login">MIT SPOTIFY VERBINDEN</button>
   <div class="hint">Einmal pro Handy. Du brauchst Spotify Premium.</div>
-  <input type="hidden" id="t-cid" value="e6db0311807c477a95e3df4dcdd3e79a">
-  <div id="redir" hidden></div>
 </section>
 
 <section class="screen" id="s-start" hidden>
   <div class="stage"><div class="vwrap"><div class="vinyl"></div></div></div>
   <button class="big" id="b-scan">KARTE SCANNEN</button>
+  <button class="ghost mbtn" id="b-music2" hidden>❚❚ Musik aus</button>
   <div id="msg"></div>
   <button class="ghost" id="b-logout" style="background:none;border:0;color:var(--dim);font-size:12px">Spotify-Verbindung trennen</button>
 </section>
@@ -90,7 +94,7 @@ a{color:var(--gelb)}
 <section class="screen" id="s-cam" hidden>
   <div id="cam"><video id="v" playsinline muted></video><div class="frame"></div></div>
   <div id="msg2" class="hint">QR-Code in den Rahmen halten</div>
-  <button class="ghost" id="b-cancel">Abbrechen</button>
+  <div class="row"><button class="ghost" id="b-cancel">Abbrechen</button><button class="ghost mbtn" id="b-music" hidden>❚❚ Musik aus</button></div>
 </section>
 
 <section class="screen" id="s-play" hidden>
@@ -99,7 +103,7 @@ a{color:var(--gelb)}
   </div>
   <button class="big" id="b-toggle">❚❚ PAUSE</button>
   <div class="row">
-    <button class="ghost" id="b-reveal">Auflösen</button>
+    <button class="ghost" id="b-reveal">Auflösen<small>gedrückt halten</small></button>
     <button class="ghost" id="b-next">Nächste Karte</button>
   </div>
   <div class="prog">
@@ -107,7 +111,7 @@ a{color:var(--gelb)}
     <div class="time"><span id="tpos">0:00</span><span class="tag" id="status">Lädt …</span><span id="tdur">0:00</span></div>
   </div>
     <div id="msg3" class="hint"></div>
-  <div class="row" id="errbtns" hidden><a class="ghost" href="spotify:">Spotify wecken</a><button class="ghost" id="b-retry">Nochmal</button></div>
+  <div class="row" id="errbtns" hidden><button class="ghost" id="b-retry">Nochmal</button></div>
 </section>
 
 </main>
@@ -127,19 +131,20 @@ const SCOPES='user-modify-playback-state user-read-playback-state';
 /* ---------- Spotify-Login (PKCE) ---------- */
 function rnd(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return Array.from(a,b=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b%66]).join('');}
 function b64u(buf){return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+const CID='e6db0311807c477a95e3df4dcdd3e79a';
 async function login(){
-  const cid='e6db0311807c477a95e3df4dcdd3e79a';
-  if(!/^[a-f0-9]{32}$/i.test(cid||'')){alert_('Das ist keine gültige Client ID (32 Zeichen).');return;}
-  ls('zs_cid',cid);
   const ver=rnd(96);ls('zs_ver',ver);
   const ch=b64u(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(ver)));
-  const u='https://accounts.spotify.com/authorize?'+new URLSearchParams({response_type:'code',client_id:cid,scope:SCOPES,redirect_uri:REDIRECT,code_challenge_method:'S256',code_challenge:ch});
-  location.href=u;
+  location.href='https://accounts.spotify.com/authorize?'+new URLSearchParams({response_type:'code',client_id:CID,scope:SCOPES,redirect_uri:REDIRECT,code_challenge_method:'S256',code_challenge:ch});
 }
 function alert_(t){const m=$('msg');m.textContent=t;m.className='err';if(screens.setup.hidden===false){let e=$('seterr');if(!e){e=document.createElement('div');e.id='seterr';e.className='hint';e.style.color='var(--pink)';screens.setup.appendChild(e);}e.textContent=t;}}
+/* Fehlerarten: REVOKED = Spotify lehnt den Schlüssel ab (neu einloggen), NETWORK = vorübergehend (behalten, später nochmal) */
 async function tokenCall(body){
-  const r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(body)});
-  const j=await r.json();if(!r.ok)throw new Error(j.error_description||j.error||'Token-Fehler');
+  let r,j={};
+  try{r=await fetch('https://accounts.spotify.com/api/token',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams(body)});}
+  catch(e){throw new Error('NETWORK');}
+  try{j=await r.json();}catch(e){}
+  if(!r.ok){if(j.error==='invalid_grant'||j.error==='invalid_client'||r.status===400)throw new Error('REVOKED');throw new Error('NETWORK');}
   const old=JSON.parse(ls('zs_tok')||'{}');
   ls('zs_tok',JSON.stringify({access:j.access_token,refresh:j.refresh_token||old.refresh,exp:Date.now()+j.expires_in*1000}));
 }
@@ -148,26 +153,30 @@ async function handleRedirect(){
   if(p.get('error')){history.replaceState({},'',REDIRECT);show('setup');alert_('Login abgebrochen: '+p.get('error'));return true;}
   const code=p.get('code');if(!code)return false;
   history.replaceState({},'',REDIRECT);
-  try{await tokenCall({grant_type:'authorization_code',code,redirect_uri:REDIRECT,client_id:ls('zs_cid'),code_verifier:ls('zs_ver')});ls('zs_ver',null);}
-  catch(e){show('setup');alert_('Login fehlgeschlagen: '+e.message);return true;}
+  try{await tokenCall({grant_type:'authorization_code',code,redirect_uri:REDIRECT,client_id:CID,code_verifier:ls('zs_ver')});ls('zs_ver',null);}
+  catch(e){show('setup');alert_(e.message==='NETWORK'?'Keine Verbindung zu Spotify. Prüfe dein Internet und versuche es nochmal.':'Login fehlgeschlagen. Bitte nochmal verbinden.');return true;}
   return false;
 }
+let refreshing=null; /* läuft gerade eine Erneuerung? Dann warten alle auf dieselbe */
 async function token(){
   let t=JSON.parse(ls('zs_tok')||'null');if(!t)throw new Error('NOLOGIN');
   if(t.exp<Date.now()+60000){
-    try{await tokenCall({grant_type:'refresh_token',refresh_token:t.refresh,client_id:ls('zs_cid')});}catch(e){ls('zs_tok',null);throw new Error('NOLOGIN');}
+    if(!refreshing)refreshing=tokenCall({grant_type:'refresh_token',refresh_token:t.refresh,client_id:CID}).finally(function(){refreshing=null;});
+    try{await refreshing;}
+    catch(e){if(e.message==='REVOKED'){ls('zs_tok',null);throw new Error('NOLOGIN');}throw e;}
     t=JSON.parse(ls('zs_tok'));
   }
   return t.access;
 }
 async function api(method,path,body){
   const t=await token();
-  return fetch('https://api.spotify.com/v1'+path,{method,headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  try{return await fetch('https://api.spotify.com/v1'+path,{method,headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});}
+  catch(e){throw new Error('NETWORK');}
 }
 function needLogin(){show('setup');}
 
 /* ---------- Wiedergabe ---------- */
-let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false;
+let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false,isPlaying=false,mode='pause',wake=false,woke=null;
 function parseTrack(text){
   if(!text)return null;
   let m=String(text).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(?:embed\/)?track\/([A-Za-z0-9]{22})/);
@@ -175,7 +184,12 @@ function parseTrack(text){
   m=String(text).match(/spotify:track:([A-Za-z0-9]{22})/);return m?m[1]:null;
 }
 function fmt(ms){const s=Math.floor(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
-function pmsg(t,err){const m=$('msg3');m.textContent=t;m.style.color=err?'var(--pink)':'';}
+function pmsg(t,kind){const m=$('msg3');m.textContent=t||'';m.className='hint'+(kind?' '+kind:'');}
+function status(t,k){const s=$('status');s.textContent=t;s.className='tag'+(k?' '+k:'');}
+/* Hauptknopf: pause | play | wake */
+function setMain(m){mode=m;const b=$('b-toggle');b.classList.toggle('wake',m==='wake');b.textContent=m==='wake'?'SPOTIFY WECKEN':m==='pause'?'❚❚ PAUSE':'▶ WEITER';}
+function setMusic(){document.querySelectorAll('.mbtn').forEach(function(b){b.hidden=!current||!gotState;b.textContent=isPlaying?'❚❚ Musik aus':'▶ Musik an';});}
+function goWake(){wake=true;location.href='spotify:';}
 async function getDevices(){
   try{const r=await api('GET','/me/player/devices');const d=await r.json();return d.devices||[];}catch(e){return [];}
 }
@@ -201,58 +215,63 @@ async function startTrack(id){
 }
 async function playTrack(id){
   stopCam();clearInterval(poll);
-  current=id;lastItem=null;gotState=false;wake=false;
-  $('reveal').hidden=true;$('s-play').classList.remove('rev');$('b-reveal').textContent='Auflösen';
+  current=id;lastItem=null;gotState=false;wake=false;isPlaying=false;
+  setReveal(false);
   setBar(0);dur=0;pos=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';
-  $('b-toggle').textContent='❚❚ PAUSE';$('status').textContent='Startet …';
+  setMain('pause');status('Startet …');$('vinyl').classList.add('spin');
   pmsg('');$('errbtns').hidden=true;
   show('play');
   try{await startTrack(id);}
   catch(e){
-    $('status').textContent='Fehler';$('vinyl').classList.remove('spin');
+    $('vinyl').classList.remove('spin');
     if(e.message==='NOLOGIN'){needLogin();return;}
-    if(e.message==='NODEVICE'||e.message==='DEVICE404'){diagnose(id);}
-    else if(e.message==='PREMIUM')pmsg('Spotify meldet: Premium nötig, oder die App ist nicht für dein Konto freigeschaltet (Dashboard → User Management).',true);
-    else pmsg('Konnte nicht starten ('+e.message+').',true);
+    if(e.message==='NODEVICE'||e.message==='DEVICE404'){diagnose(id);return;}
+    status('Fehler','warn');setMain('play');$('errbtns').hidden=false;
+    if(e.message==='NETWORK')pmsg('Keine Verbindung zu Spotify. Prüfe dein Internet und tippe „Nochmal“.','err');
+    else if(e.message==='PREMIUM')pmsg('Spotify meldet: Premium nötig, oder die App ist nicht für dein Konto freigeschaltet (Dashboard → User Management).','err');
+    else pmsg('Konnte nicht starten ('+e.message+').','err');
     return;
   }
-  if(navigator.vibrate)try{navigator.vibrate(60)}catch(e){}
   poll=setInterval(refresh,1000);refresh();
   setTimeout(function(){if(current===id&&!gotState)diagnose(id);},4500);
 }
-var woke=null;
-async function diagnose(id){
-  wake=true;$('vinyl').classList.remove('spin');
+/* Spotify schläft im Hintergrund: einmal automatisch hinspringen, sonst Hauptknopf „SPOTIFY WECKEN“ */
+function diagnose(id){
+  clearInterval(poll);
+  wake=true;$('vinyl').classList.remove('spin');setMain('wake');status('Spotify schläft','warn');
+  const manual='Tippe auf „Spotify wecken“ und wechsle danach zurück zu Safari. Der Song startet dann von selbst.';
   if(woke!==id){
     woke=id;
-    $('status').textContent='Weckt Spotify …';
-    pmsg('Spotify schlief. Wechsle kurz hin und gleich zurück zu Safari, der Song startet dann von selbst.');
-    setTimeout(function(){location.href='spotify:';},500);
+    pmsg('Spotify wird geweckt. Wechsle danach zurück zu Safari, der Song startet dann von selbst.','info');
+    setTimeout(function(){
+      if(current!==id||gotState)return;
+      location.href='spotify:';
+      /* Seite nach 2 s noch sichtbar = Safari hat den Sprung blockiert */
+      setTimeout(function(){if(document.visibilityState==='visible'&&current===id&&!gotState)pmsg(manual,'info');},2000);
+    },500);
     return;
   }
-  $('status').textContent='Spotify schläft';
-  pmsg('Spotify reagiert nicht. Tippe auf „Spotify wecken“ und wechsle zurück zu Safari.',true);
-  $('errbtns').hidden=false;
+  pmsg(manual,'info');$('errbtns').hidden=false;
 }
-var wake=false;
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'&&wake&&current&&!gotState){wake=false;setTimeout(function(){playTrack(current);},600);}
+  if(document.visibilityState==='visible'&&wake&&current&&!gotState&&!screens.play.hidden){wake=false;setTimeout(function(){playTrack(current);},600);}
 });
 async function refresh(){
-  try{
-    const r=await api('GET','/me/player');
-    if(r.status!==200)return;
-    const s=await r.json();
-    if(!s.item||(s.item.id!==current&&!(s.item.linked_from&&s.item.linked_from.id===current)))return;
-    lastItem=s.item;gotState=true;
-    dur=s.item.duration_ms;pos=s.progress_ms||0;
-    if(!dragging)setBar(pos/dur);
-    if(!dragging)$('tpos').textContent=fmt(pos);$('tdur').textContent=fmt(dur);
-    $('b-toggle').textContent=s.is_playing?'❚❚ PAUSE':'▶ WEITER';
-    $('vinyl').classList.toggle('spin',s.is_playing);
-    $('status').textContent=s.is_playing?'Läuft':(pos>=dur-1500?'Zu Ende':'Pausiert');
-    if(!$('reveal').hidden)fillReveal();
-  }catch(e){}
+  let r;
+  try{r=await api('GET','/me/player');}
+  catch(e){if(e.message==='NOLOGIN'){clearInterval(poll);needLogin();}else if(gotState)status('Keine Verbindung …','warn');return;}
+  if(r.status!==200)return;
+  let s;try{s=await r.json();}catch(e){return;}
+  if(!s.item||(s.item.id!==current&&!(s.item.linked_from&&s.item.linked_from.id===current)))return;
+  if(!gotState){woke=null;pmsg('');$('errbtns').hidden=true;}
+  lastItem=s.item;gotState=true;wake=false;isPlaying=!!s.is_playing;
+  dur=s.item.duration_ms;pos=s.progress_ms||0;
+  if(!dragging){setBar(pos/dur);$('tpos').textContent=fmt(pos);}
+  $('tdur').textContent=fmt(dur);
+  setMain(isPlaying?'pause':'play');
+  $('vinyl').classList.toggle('spin',isPlaying);
+  if(isPlaying)status('Läuft','ok');else status(pos>=dur-1500?'Zu Ende':'Pausiert');
+  if(!$('reveal').hidden)fillReveal();
 }
 function setBar(f){f=Math.max(0,Math.min(1,f||0));$('prog').style.width=f*100+'%';$('knob').style.left=f*100+'%';}
 async function seekTo(ms){
@@ -279,32 +298,49 @@ function fillReveal(){
   $('r-year').textContent=yl||ys||'';$('r-ysrc').textContent=yl?'':(ys?'laut Spotify':'');
   $('r-artist').textContent=lastItem.artists.map(a=>a.name).join(', ');
 }
+async function togglePlay(){
+  const want=!isPlaying;
+  try{await api('PUT','/me/player/'+(want?'play':'pause'),want?{}:undefined);isPlaying=want;}catch(e){}
+  setMusic();
+}
 $('b-toggle').onclick=async function(){
-  try{
-    const playing=this.textContent.indexOf('PAUSE')>-1;
-    if(playing)await api('PUT','/me/player/pause');else await api('PUT','/me/player/play',{});
-    refresh();
-  }catch(e){}
+  if(mode==='wake'){goWake();return;}
+  await togglePlay();setMain(isPlaying?'pause':'play');setTimeout(refresh,250);
 };
-$('b-reveal').onclick=function(){
-  const on=$('reveal').hidden;$('reveal').hidden=!on;$('s-play').classList.toggle('rev',on);this.textContent=on?'Verbergen':'Auflösen';
+document.querySelectorAll('.mbtn').forEach(function(b){b.onclick=togglePlay;});
+/* Auflösen nur durch Gedrückthalten (0,6 s), Verbergen per Tipp */
+function setReveal(on){
+  $('reveal').hidden=!on;$('s-play').classList.toggle('rev',on);
+  $('b-reveal').innerHTML=on?'Verbergen':'Auflösen<small>gedrückt halten</small>';
   if(on){fillReveal();if(!lastItem)refresh();}
-};
-$('b-retry').onclick=function(){if(current)playTrack(current);};
-$('b-next').onclick=async function(){
-  clearInterval(poll);
-  show('start');say('');startCam();
-};
+}
+(function(){
+  const b=$('b-reveal');let t=0;
+  function cancel(){clearTimeout(t);b.classList.remove('hold');}
+  b.addEventListener('pointerdown',function(){
+    if(!$('reveal').hidden)return;
+    b.classList.add('hold');t=setTimeout(function(){b.classList.remove('hold');setReveal(true);b.dataset.just='1';},600);
+  });
+  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,cancel);});
+  b.addEventListener('contextmenu',function(e){e.preventDefault();});
+  b.addEventListener('click',function(e){
+    if(b.dataset.just){delete b.dataset.just;return;}      /* Klick direkt nach dem Halten ignorieren */
+    if(!$('reveal').hidden)setReveal(false);
+    else if(e.detail===0)setReveal(true);                   /* Tastatur/VoiceOver */
+  });
+})();
+$('b-retry').onclick=function(){if(current){woke=null;playTrack(current);}};
+$('b-next').onclick=function(){clearInterval(poll);setMusic();say('');startCam();};
 
 /* ---------- Kamera-Scan ---------- */
 let stream=null,raf=0,detector=null,canvas=document.createElement('canvas'),cx=canvas.getContext('2d',{willReadFrequently:true}),lastTry=0;
 async function startCam(){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){say('Kamera nicht verfügbar. Öffne die Seite in Safari.',true);return;}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){show('start');setMusic();say('Kamera nicht verfügbar. Öffne die Seite in Safari.',true);return;}
   try{stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});}
-  catch(e){say('Kamerazugriff verweigert. Erlaube die Kamera in den Safari-Einstellungen für diese Seite.',true);return;}
+  catch(e){show('start');setMusic();say('Kamerazugriff verweigert. Erlaube die Kamera in den Safari-Einstellungen für diese Seite.',true);return;}
   const v=$('v');v.srcObject=stream;await v.play().catch(function(){});
   if('BarcodeDetector' in window){try{detector=new BarcodeDetector({formats:['qr_code']});}catch(e){detector=null;}}
-  show('cam');$('msg2').textContent='QR-Code in den Rahmen halten';loop();
+  show('cam');setMusic();$('msg2').textContent='QR-Code in den Rahmen halten';loop();
 }
 function stopCam(){cancelAnimationFrame(raf);if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}}
 async function loop(){
@@ -326,11 +362,11 @@ async function loop(){
   raf=requestAnimationFrame(loop);
 }
 $('b-scan').onclick=function(){say('');startCam();};
-$('b-cancel').onclick=function(){stopCam();show('start');};
+$('b-cancel').onclick=function(){stopCam();show('start');setMusic();};
 
 /* ---------- Login ---------- */
 $('b-login').onclick=login;
-$('b-logout').onclick=function(){ls('zs_tok',null);needLogin();};
+$('b-logout').onclick=function(){ls('zs_tok',null);ls('zs_cid',null);current=null;needLogin();};
 
 /* ---------- Goldener Schnitt: Hauptknopf auf 61,8 % der Höhe ---------- */
 function layout(){
@@ -349,7 +385,6 @@ layout();
 
 /* ---------- Start ---------- */
 (async function init(){
-  $('redir').textContent=REDIRECT;
   const failed=await handleRedirect();if(failed)return;
   if(ls('zs_tok'))show('start');else needLogin();
 })();
