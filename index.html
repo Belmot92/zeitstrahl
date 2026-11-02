@@ -4,19 +4,30 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#0b0b0c">
-<title>Deutschrap – Der Zeitstrahl</title>
+<title>TIMSTER</title>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#0b0b0c;--panel:#17171a;--line:#2a2a2f;--fg:#f4f1ea;--dim:#8d8d96;--gelb:#ffd400;--pink:#ff3d81}
+:root{--bg:#0b0b0c;--panel:#17171a;--line:#2a2a2f;--fg:#f4f1ea;--dim:#8d8d96;--gelb:#b6ff3c;--pink:#ff3d81}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-body{display:flex;flex-direction:column;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow-y:auto}
-header{text-align:center;letter-spacing:.28em;font-size:12px;color:var(--gelb);font-weight:800;text-transform:uppercase}
-header small{display:block;color:var(--dim);letter-spacing:.18em;font-weight:600;margin-top:4px}
-main{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0;padding-block:14px}
+body{display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 30px) max(16px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow-y:auto}
+.logo{margin:6px auto 0;width:min(100%,340px);text-align:center}
+.logo h1{margin:0;font-family:Comfortaa,'Varela Round',system-ui,sans-serif;font-weight:700;font-size:clamp(40px,13.5vw,60px);line-height:1;letter-spacing:.04em;color:transparent;-webkit-text-stroke:2px #eaffd0;
+ text-shadow:0 0 6px #b6ff3c,0 0 16px #6ee00a,0 0 34px #4cc400}
+.logo p{margin:10px 0 0;color:#fff;font-weight:500;font-size:11px;letter-spacing:.3em;text-transform:uppercase}
+.tl{position:relative;height:22px;margin:14px 6px 0;filter:drop-shadow(0 0 5px #6ee00a)}
+.tl::before{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#b6ff3c;border-radius:2px}
+.tl::after{content:"";position:absolute;left:0;right:0;bottom:3px;height:9px;background:repeating-linear-gradient(90deg,#b6ff3c 0 2px,transparent 2px 10px)}
+.tl b{position:absolute;bottom:3px;width:3px;height:20px;background:#b6ff3c}
+.tl b:first-child{left:0}.tl b:last-child{right:0}
+.yrs{display:flex;justify-content:space-between;margin:4px 6px 0;color:#c9ff7a;font-size:13px;letter-spacing:.14em;text-shadow:0 0 8px #6ee00a;font-variant-numeric:tabular-nums}
+main{flex:1;display:flex;flex-direction:column;align-items:center;gap:18px;min-height:0;padding-block:28px 14px}
 [hidden]{display:none!important}
 .screen{width:100%;max-width:420px;display:flex;flex-direction:column;align-items:center;gap:14px}
+.stage{width:100%;height:var(--stage-h,300px);display:flex;flex-direction:column;align-items:center;gap:14px}
+#s-start .vinyl,#s-setup .vinyl{width:min(64vw,250px,30dvh);margin-bottom:26px}
 button{font:inherit;border:0;cursor:pointer;color:var(--fg)}
-.big{width:100%;padding:18px;border-radius:14px;background:var(--gelb);color:#111;font-weight:800;font-size:18px;letter-spacing:.04em}
+.big{width:100%;padding:18px;border-radius:14px;background:var(--gelb);color:#0a1a00;font-weight:800;font-size:18px;letter-spacing:.04em}
 .big:active{transform:scale(.98)}
 .ghost{background:var(--panel);border:1px solid var(--line);padding:13px 16px;border-radius:12px;font-size:15px;width:100%}
 .row{display:flex;gap:10px;width:100%}.row>*{flex:1}
@@ -24,6 +35,8 @@ button{font:inherit;border:0;cursor:pointer;color:var(--fg)}
  radial-gradient(circle,var(--gelb) 0 17%,#111 17.5% 19%,transparent 19.5%),
  repeating-radial-gradient(circle,#161618 0 2px,#0c0c0d 2px 4px);border:2px solid #222;position:relative;box-shadow:0 10px 40px #000a}
 .vinyl::after{content:"";position:absolute;inset:0;border-radius:50%;background:conic-gradient(from 20deg,#fff0,#fff2 8%,#fff0 20%,#fff0 50%,#fff2 58%,#fff0 70%)}
+.s-play-v{}
+#vinyl{width:min(44vw,170px,20dvh)}
 .vinyl.spin{animation:spin 2.4s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.vinyl.spin{animation:none}}
@@ -32,8 +45,10 @@ button{font:inherit;border:0;cursor:pointer;color:var(--fg)}
 #cam .frame{position:absolute;inset:18% 14%;border:3px solid var(--gelb);border-radius:22px;box-shadow:0 0 0 999px #0008}
 #msg{color:var(--dim);font-size:14px;text-align:center;min-height:20px;line-height:1.4}
 #msg.err{color:var(--pink)}
-.bar{width:100%;height:6px;background:var(--panel);border-radius:3px;overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:var(--gelb)}
+.barwrap{width:100%;padding:12px 0;touch-action:none;cursor:pointer}
+.bar{width:100%;height:8px;background:var(--panel);border-radius:4px;position:relative}
+.bar i{display:block;height:100%;width:0;background:var(--gelb);border-radius:4px}
+.bar b{position:absolute;top:50%;left:0;width:20px;height:20px;margin:-10px 0 0 -10px;border-radius:50%;background:var(--fg);box-shadow:0 1px 6px #000a}
 .time{font-variant-numeric:tabular-nums;color:var(--dim);font-size:13px;display:flex;justify-content:space-between;width:100%}
 input[type=text]{width:100%;padding:13px;border-radius:12px;border:1px solid var(--line);background:var(--panel);color:var(--fg);font-size:15px}
 .hint{font-size:12px;color:var(--dim);text-align:center;line-height:1.5}
@@ -46,21 +61,19 @@ a{color:var(--gelb)}
 </style>
 </head>
 <body>
-<header>Deutschrap · Der Zeitstrahl<small>Karte scannen · hören · einordnen</small></header>
+<header><div class="logo"><h1>TIMSTER</h1><p>Die Deutschrap Edition</p><div class="tl"><b></b><b></b></div><div class="yrs"><span>1995</span><span>2026</span></div></div></header>
 <main>
 
 <section class="screen" id="s-setup" hidden>
-  <div class="tag">Einmalig einrichten</div>
-  <div class="hint" style="text-align:left">1. Auf <b>developer.spotify.com/dashboard</b> eine App anlegen.<br>2. Bei „Redirect URI“ genau diese Adresse eintragen:</div>
-  <div class="code" id="redir"></div>
-  <div class="hint" style="text-align:left">3. Bei „Which API/SDKs“ <b>Web API</b> ankreuzen, speichern.<br>4. Die <b>Client ID</b> hier einfügen:</div>
-  <input type="text" id="t-cid" placeholder="Client ID" autocapitalize="off" autocomplete="off" autocorrect="off">
+  <div class="stage"><div class="vinyl"></div></div>
   <button class="big" id="b-login">MIT SPOTIFY VERBINDEN</button>
-  <div class="hint">Nur Safari verwenden, nicht die Home-Bildschirm-Verknüpfung.</div>
+  <div class="hint">Einmal pro Handy. Du brauchst Spotify Premium.</div>
+  <input type="hidden" id="t-cid" value="e6db0311807c477a95e3df4dcdd3e79a">
+  <div id="redir" hidden></div>
 </section>
 
 <section class="screen" id="s-start" hidden>
-  <div class="vinyl"></div>
+  <div class="stage"><div class="vinyl"></div></div>
   <button class="big" id="b-scan">KARTE SCANNEN</button>
   <div class="row">
     <button class="ghost" id="b-photo">Foto aufnehmen</button>
@@ -82,10 +95,12 @@ a{color:var(--gelb)}
 </section>
 
 <section class="screen" id="s-play" hidden>
+  <div class="stage">
   <div class="vinyl spin" id="vinyl"></div>
   <div class="tag" id="status">Lädt …</div>
-  <div class="bar"><i id="prog"></i></div>
+  <div class="barwrap" id="barwrap"><div class="bar"><i id="prog"></i><b id="knob"></b></div></div>
   <div class="time"><span id="tpos">0:00</span><span id="tdur">0:00</span></div>
+  </div>
   <button class="big" id="b-toggle">❚❚ PAUSE</button>
   <div class="row">
     <button class="ghost" id="b-restart">Von vorn</button>
@@ -93,7 +108,7 @@ a{color:var(--gelb)}
   </div>
   <div id="reveal" hidden><img id="r-img" alt=""><div><b id="r-title"></b><span id="r-artist"></span></div></div>
   <button class="ghost" id="b-next">Nächste Karte</button>
-  <div id="msg3" class="hint">Der Song läuft in der Spotify-App. Hier bleibt alles verborgen, bis du „Auflösen“ tippst.</div>
+  <div id="msg3" class="hint"></div>
 </section>
 
 </main>
@@ -114,7 +129,7 @@ const SCOPES='user-modify-playback-state user-read-playback-state';
 function rnd(n){const a=new Uint8Array(n);crypto.getRandomValues(a);return Array.from(a,b=>'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~'[b%66]).join('');}
 function b64u(buf){return btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 async function login(){
-  const cid=$('t-cid').value.trim()||ls('zs_cid');
+  const cid='e6db0311807c477a95e3df4dcdd3e79a';
   if(!/^[a-f0-9]{32}$/i.test(cid||'')){alert_('Das ist keine gültige Client ID (32 Zeichen).');return;}
   ls('zs_cid',cid);
   const ver=rnd(96);ls('zs_ver',ver);
@@ -150,10 +165,10 @@ async function api(method,path,body){
   const t=await token();
   return fetch('https://api.spotify.com/v1'+path,{method,headers:{Authorization:'Bearer '+t,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
 }
-function needLogin(){show('setup');$('t-cid').value=ls('zs_cid')||'e6db0311807c477a95e3df4dcdd3e79a';}
+function needLogin(){show('setup');}
 
 /* ---------- Wiedergabe ---------- */
-let current=null,poll=0,lastItem=null,gotState=false;
+let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false;
 function parseTrack(text){
   if(!text)return null;
   let m=String(text).match(/open\.spotify\.com\/(?:intl-[a-z]+\/)?(?:embed\/)?track\/([A-Za-z0-9]{22})/);
@@ -182,9 +197,9 @@ async function playTrack(id){
   stopCam();clearInterval(poll);
   current=id;lastItem=null;gotState=false;
   $('reveal').hidden=true;$('b-reveal').textContent='Auflösen';
-  $('prog').style.width='0';$('tpos').textContent='0:00';$('tdur').textContent='0:00';
+  setBar(0);dur=0;pos=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';
   $('b-toggle').textContent='❚❚ PAUSE';$('status').textContent='Startet …';
-  pmsg('Der Song läuft in der Spotify-App. Hier bleibt alles verborgen, bis du „Auflösen“ tippst.');
+  pmsg('');
   show('play');
   try{await startTrack(id);}
   catch(e){
@@ -205,15 +220,31 @@ async function refresh(){
     const s=await r.json();
     if(!s.item||s.item.id!==current)return;
     lastItem=s.item;gotState=true;
-    const dur=s.item.duration_ms,pos=s.progress_ms||0;
-    $('prog').style.width=Math.min(100,pos/dur*100)+'%';
-    $('tpos').textContent=fmt(pos);$('tdur').textContent=fmt(dur);
+    dur=s.item.duration_ms;pos=s.progress_ms||0;
+    if(!dragging)setBar(pos/dur);
+    if(!dragging)$('tpos').textContent=fmt(pos);$('tdur').textContent=fmt(dur);
     $('b-toggle').textContent=s.is_playing?'❚❚ PAUSE':'▶ WEITER';
     $('vinyl').classList.toggle('spin',s.is_playing);
     $('status').textContent=s.is_playing?'Läuft':(pos>=dur-1500?'Zu Ende':'Pausiert');
     if(!$('reveal').hidden)fillReveal();
   }catch(e){}
 }
+function setBar(f){f=Math.max(0,Math.min(1,f||0));$('prog').style.width=f*100+'%';$('knob').style.left=f*100+'%';}
+async function seekTo(ms){
+  ms=Math.max(0,Math.min(dur?dur-500:ms,Math.round(ms)));
+  pos=ms;setBar(dur?ms/dur:0);$('tpos').textContent=fmt(ms);
+  try{await api('PUT','/me/player/seek?position_ms='+ms);}catch(e){}
+  setTimeout(refresh,300);
+}
+(function(){
+  const w=$('barwrap');
+  function frac(e){const r=$('prog').parentNode.getBoundingClientRect();return Math.max(0,Math.min(1,(e.clientX-r.left)/r.width));}
+  w.addEventListener('pointerdown',function(e){if(!dur)return;dragging=true;try{w.setPointerCapture(e.pointerId)}catch(_){}const f=frac(e);setBar(f);$('tpos').textContent=fmt(f*dur);});
+  w.addEventListener('pointermove',function(e){if(!dragging)return;const f=frac(e);setBar(f);$('tpos').textContent=fmt(f*dur);});
+  function end(e){if(!dragging)return;dragging=false;seekTo(frac(e)*dur);}
+  w.addEventListener('pointerup',end);
+  w.addEventListener('pointercancel',function(){dragging=false;});
+})();
 function fillReveal(){
   if(!lastItem)return;
   $('r-img').src=(lastItem.album.images[1]||lastItem.album.images[0]||{}).url||'';
@@ -291,6 +322,21 @@ $('b-go').onclick=function(){const id=parseTrack($('t-link').value);if(id)playTr
 $('t-link').addEventListener('keydown',function(e){if(e.key==='Enter')$('b-go').click();});
 $('b-login').onclick=login;
 $('b-logout').onclick=function(){ls('zs_tok',null);needLogin();};
+
+/* ---------- Goldener Schnitt: Hauptknopf auf 61,8 % der Höhe ---------- */
+function layout(){
+  const probe=document.querySelector('.screen:not([hidden]) .stage')||document.querySelector('.stage');
+  if(!probe)return;
+  const prev=probe.style.height;probe.style.height='0px';
+  const top=probe.getBoundingClientRect().top+window.scrollY;
+  probe.style.height=prev;
+  const h=Math.max(215,Math.round(window.innerHeight*0.618-43-top));
+  document.documentElement.style.setProperty('--stage-h',h+'px');
+}
+window.addEventListener('resize',layout);
+new MutationObserver(layout).observe(document.querySelector('main'),{attributes:true,subtree:true,attributeFilter:['hidden']});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(layout);
+layout();
 
 /* ---------- Start ---------- */
 (async function init(){
