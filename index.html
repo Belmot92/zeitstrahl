@@ -211,7 +211,7 @@ async function playTrack(id){
   catch(e){
     $('status').textContent='Fehler';$('vinyl').classList.remove('spin');
     if(e.message==='NOLOGIN'){needLogin();return;}
-    if(e.message==='NODEVICE'||e.message==='DEVICE404'){wake=true;pmsg('Spotify erreicht dein iPhone gerade nicht. Tippe auf „Spotify wecken“ und wechsle danach zurück zu Safari.',true);$('errbtns').hidden=false;}
+    if(e.message==='NODEVICE'||e.message==='DEVICE404'){diagnose(id);}
     else if(e.message==='PREMIUM')pmsg('Spotify meldet: Premium nötig, oder die App ist nicht für dein Konto freigeschaltet (Dashboard → User Management).',true);
     else pmsg('Konnte nicht starten ('+e.message+').',true);
     return;
@@ -220,10 +220,18 @@ async function playTrack(id){
   poll=setInterval(refresh,1000);refresh();
   setTimeout(function(){if(current===id&&!gotState)diagnose(id);},4500);
 }
+var woke=null;
 async function diagnose(id){
-  wake=true;
-  $('status').textContent='Spotify schläft';$('vinyl').classList.remove('spin');
-  pmsg('Dein iPhone hat Spotify eingeschlafen. Tippe auf „Spotify wecken“, warte kurz und wechsle zurück zu Safari. Der Song startet dann automatisch.',true);
+  wake=true;$('vinyl').classList.remove('spin');
+  if(woke!==id){
+    woke=id;
+    $('status').textContent='Weckt Spotify …';
+    pmsg('Spotify schlief. Wechsle kurz hin und gleich zurück zu Safari, der Song startet dann von selbst.');
+    setTimeout(function(){location.href='spotify:';},500);
+    return;
+  }
+  $('status').textContent='Spotify schläft';
+  pmsg('Spotify reagiert nicht. Tippe auf „Spotify wecken“ und wechsle zurück zu Safari.',true);
   $('errbtns').hidden=false;
 }
 var wake=false;
