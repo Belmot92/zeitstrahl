@@ -183,9 +183,16 @@ async function api(method,path,body){
 function needLogin(){show('setup');}
 
 /* ---------- Wiedergabe ---------- */
-let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false,isPlaying=false,mode='pause',wake=false,woke=null,silent=false,silTimer=0,repeatOn=false,resumeAt=0;
+let current=null,poll=0,lastItem=null,gotState=false,dur=0,pos=0,dragging=false,isPlaying=false,mode='pause',wake=false,woke=null,silent=false,silTimer=0,repeatOn=false,resumeAt=0,alias=null,expKey='';
 /* Stille-Tracks: halten Spotify im Hintergrund wach, statt zu pausieren */
 const SILENCE=['6gWSdJ0JS8hPUrKDUrgEwj','0vqOexC3BQ4wpFREmBoQqm'];
+/* Spotify ersetzt manche Tracks durch eine andere Version (Single vs. Album, „Relinking“).
+   Darum: Ersatz-ID abfragen und zusätzlich über Titel + Hauptartist wiedererkennen. */
+function songKey(it){if(!it||!it.name)return '';const n=it.name.toLowerCase().replace(/\(.*?\)|\[.*?\]|\s-\s.*$/g,'').replace(/[^a-z0-9äöüß]/g,'');const a=((it.artists&&it.artists[0]&&it.artists[0].name)||'').toLowerCase().replace(/[^a-z0-9äöüß]/g,'');return n+'|'+a;}
+async function resolveAlias(id){
+  try{const r=await api('GET','/tracks/'+id+'?market=from_token');if(!r.ok)return;const t=await r.json();
+    if(current!==id)return;if(t.id&&t.id!==id)alias=t.id;expKey=songKey(t);}catch(e){}
+}
 function haptic(){try{$('hapt').click();}catch(e){}}
 function parseTrack(text){
   if(!text)return null;
@@ -226,7 +233,7 @@ async function startTrack(id,startMs){
 async function playTrack(id,startMs,keep){
   stopCam();clearInterval(poll);clearTimeout(silTimer);
   startMs=startMs||0;resumeAt=startMs;
-  if(!keep||current!==id){current=id;lastItem=null;setReveal(false);setBar(0);dur=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';}
+  if(!keep||current!==id){current=id;alias=null;expKey='';lastItem=null;setReveal(false);setBar(0);dur=0;$('tpos').textContent='0:00';$('tdur').textContent='0:00';}
   gotState=false;wake=false;isPlaying=false;silent=false;pos=startMs;
   setMain('pause');status('Startet …');$('vinyl').classList.add('spin');
   pmsg('');$('errbtns').hidden=true;
@@ -242,6 +249,7 @@ async function playTrack(id,startMs,keep){
     else pmsg('Konnte nicht starten ('+e.message+').','err');
     return;
   }
+  resolveAlias(id);
   poll=setInterval(refresh,1000);refresh();
   setTimeout(function(){if(current===id&&!gotState)diagnose(id);},4500);
 }
@@ -268,12 +276,15 @@ document.addEventListener('visibilitychange',function(){
 });
 async function refresh(){
   let r;
-  try{r=await api('GET','/me/player');}
+  try{r=await api('GET','/me/player?market=from_token');}
   catch(e){if(e.message==='NOLOGIN'){clearInterval(poll);needLogin();}else if(gotState)status('Keine Verbindung …','warn');return;}
   if(silent)return;                                   /* Stille läuft: Zustand hält die App selbst */
   if(r.status!==200)return;
   let s;try{s=await r.json();}catch(e){return;}
-  const mine=s.item&&(s.item.id===current||(s.item.linked_from&&s.item.linked_from.id===current));
+  const it=s.item;
+  let mine=!!it&&(it.id===current||it.id===alias||(it.linked_from&&it.linked_from.id===current));
+  if(!mine&&it&&expKey&&SILENCE.indexOf(it.id)<0&&songKey(it)===expKey){mine=true;alias=it.id;}   /* gleiche Aufnahme, andere Version */
+  if(!mine&&it&&TITLES[current]&&SILENCE.indexOf(it.id)<0&&songKey(it).split('|')[0]===songKey({name:TITLES[current]}).split('|')[0]){mine=true;alias=it.id;}   /* Fallback: Titel der Karte */
   if(!mine){
     /* Unser Song ist vorbei und Spotify spielt etwas anderes (Autoplay) oder nichts: auf Stille umschalten */
     if(gotState&&!silent&&pos>=dur-15000)enterSilence(dur,true);
@@ -327,6 +338,7 @@ async function seekTo(ms){
   w.addEventListener('pointercancel',function(){dragging=false;});
 })();
 const YEARS={"3rTSoSOTvOebYMy2kzKvkJ":1995,"6NYZ0wmDmpMe8NBQcttXKY":1995,"0llxnKwB2eKrVEUxBWuHgR":1996,"0hWaBqfcddUlqOk33fpx3G":1996,"32qGSeitr651MMC8XAJ6fg":1997,"6EWtkdeKmVtRjmydTfIR0S":1997,"6YzYyeMV5MY7wHOGskZdzf":1998,"5tYNY1VFSIl30D9TQWcUJ1":1998,"0pgx8fWphTTM9Kv5KjWpXy":1999,"3kzpeWohOetyc4IHedgxuC":1999,"0zv3f19rNhmZhNmNA2xJsF":2000,"3TGXkgak9QCwa631dSKwT7":2000,"5F0mIAjVhGaU3MC7uE25Dz":2000,"50Ud3gmtiYRHOFILITM8oM":2002,"5NBQ27xdjOZuyvOevpSZBd":2002,"3Vvn5JeFFNS5T2f7thVqYg":2003,"09FVGGk1acFWLvuzbvHww7":2004,"4T1tVhQahmAOvTF65lKq4o":2004,"5crrBNchS0b8VtWfRpaZTp":2005,"35DZulFkVczOekDIIzys3J":2006,"1mC06CRaWGhsWhdX99GJqL":2007,"1aT1DxAlxMPaNJ1rdN4V7c":2007,"4Yc8QgcyA287WmqlHZWt9Z":2007,"3gMtLYMa2zGLHi3lAzz5yP":2009,"4YZxwEHbmwwgdvhAUDwFXz":2010,"229lNX8O1MwY1otR05jrlE":2011,"4Mbvr9b9eUP5gXBaMoLTJ9":2012,"6kjBafSuYC8gClzfYu7T1t":2012,"2b3ZuwrGf50eDbmYKrWSE7":2013,"59BhNnVBBXKhUjONX7jlrk":2013,"1SDTUDXE7brNAO1N6LFXYx":2014,"6QNgcN2uHhXJG4RWDPyQQF":2014,"0P9IO1y2I4burQjlZsmK3J":2015,"1B2s3CpX2PV0YN7DkLSQ4b":2015,"2mdsmcQiVTsX6NiPt52Elm":2015,"2jfSOSYCYOo0etOR7BcuSy":2016,"5IvFgLGsq0LeEf09FuYfA2":2016,"5wExm3smficf6dgIPjlqfX":2016,"2CCgh3vUSvAFotYavGL02W":2016,"1vfVPUkl5v0HXWCEgQJHOf":2016,"1EC0kQfErxlCggOysDKve6":2017,"2hIY4sjfMeKwXXh2LvhrMo":2017,"4vN2F1v7WphIUva3S6hwaT":2017,"3ZlnjH0lEMZHMdviRPyG34":2017,"2gaHAv8a7eDlsZra2g2J1l":2017,"7pbU4vJyxiVvDSPmQ2FDf8":2018,"3HKjsfDbwnGwMRN8pqPO2b":2018,"0oZyouBDStcJEUbTmSfys2":2018,"0uwtoHwfX5MH2LqpQaG6Ht":2018,"0H9WHopZ62JeDaGau7REMw":2019,"5U0xzeW4o26c0bzDxafwQ6":2019,"6Y7ZEVr7lgO8FKGk2vZ2hi":2019,"62NcEJBPuwVgohKoo8UL4g":2020,"5CqkgDH8QZjSqqI3HmYxDD":2020,"7d2M8bDOgwT8Kn5ensTxoL":2020,"0gThlZWwZWkDqRKGOz2CN1":2020,"0Asp5uOfJGhbFWJnxM8ODz":2020,"79lc69ZXfL4WmJIzVSDmWT":2021,"0PD8TAuCUeikDT9EeEw26l":2021,"1zLuIPhPHk14s4I5uOtqaS":2021,"2PXsEQHgJxizSDNO4MOM7i":2021,"1jGKxip4DY5MDNGV9tT8O9":2021,"2aJyxONT0lzqV2CWMHdBlt":2022,"41KH81gnVWhIESbCRYluOQ":2022,"6icjOrzM57QrCAtBeWB5WF":2022,"0j1whACQqbHlGzSZaUh6uR":2022,"70qTHH9uOgAflbi0BROI9K":2022,"4taclmQm9wFcK4dKQjR5ny":2023,"3er1Vh8p84gqJe0mLtBmj9":2024,"5Z7SsHOmzIeWh38QOEdHQK":2024,"46blMHWBntl39gPyCRkWfz":2025,"72mTkKFJYy497k5cJhqVwi":2026,"4xltR68cjUkYyjuYK09ESR":2026,"1A0b0yR0quuBByKQzASAvf":2004,"4vcexiS2DvcnISLyXUHLzV":2005,"37nyrmQ91H0clFNmGFT7A6":2006,"701dAE5yxHQuhksxFU20H2":2006,"7pNTvZkyZPuesjbtefqq4h":2010,"4hgktvJIl0falCPy2FjxZ0":2010,"4X5UoZNQhx10USjvN0XwRb":2012,"7JJW2NnRNreoBleMiz5RPi":2012,"12R1sZhdnWoixTOZ4twaQN":2012,"6X5AWHDA4RGnH1CaMQATU7":2013,"73fcRZL4y2rhfjan9AdXk8":2013,"5ks8DZ3hJln0kCoKU8pVi7":2013,"32IKJthM7ARKvGBTZCE1Et":2014,"2AXOg2WMjJt8Os7M3b589T":2014,"2k0cvQmGvHOuNmKo2rMYIj":2015,"0leLRfHtVDBIPYRDadncJ2":2015,"3a5qsP4xawpweFRXgzG6VP":2018,"38lQ7lYhN3eSWepnZHaiBF":2019,"6tAKikIvnoWfUeZrfkopLL":2023,"2kZpdcfk6TAVfWamfiKmpR":2001,"55XKmLc9rZRrwjF13tUTbJ":2001,"08EhVPqEyaQgcsFAUCedoW":2001,"3OdMGjk0Mj8s5VxRiTkKZE":2002,"2wGj42m9knQcUJIqDGP2i0":2003,"6BZREKlUgeZLJcAT0UVJMT":2003,"28kdj7ozHoGdQIU26IGuFf":2005,"0O40g422s304MMx6PjG7fg":2008,"7xT4N6XmaivLgGvzXWHSeV":2008,"5yNZ4KTzc8YUL04rVPbBmN":2008,"63nmP9cBP3dT8cMQWNH3vt":2009,"1hqU66ZVePmWH3FPjc0kbw":2009,"5thfpDHbJL3JyrSjsnhiLY":2011,"1luuVJuCIJU4wk2W4cAi0j":2011,"4E8UuCXyyrKTiK0fSBHjQg":2014,"51YPOqWSkItMD6R0qEJ7WI":2019,"3aLZ0s5ulFLcFCtIZQblpo":2019,"2NEtkjiFgrIHRNWJE9Hpa7":2025};
+const TITLES={"3rTSoSOTvOebYMy2kzKvkJ":"Sie ist weg","6NYZ0wmDmpMe8NBQcttXKY":"Nordisch by Nature","0llxnKwB2eKrVEUxBWuHgR":"Jein","0hWaBqfcddUlqOk33fpx3G":"Verpiss dich","32qGSeitr651MMC8XAJ6fg":"6 Meter 90","6EWtkdeKmVtRjmydTfIR0S":"A-N-N-A","6YzYyeMV5MY7wHOGskZdzf":"Liebeslied","5tYNY1VFSIl30D9TQWcUJ1":"Flugzeuge im Bauch","0pgx8fWphTTM9Kv5KjWpXy":"Reimemonster","3kzpeWohOetyc4IHedgxuC":"MfG (Mit freundlichen Grüßen)","0zv3f19rNhmZhNmNA2xJsF":"Türlich, türlich (sicher, Dicker)","3TGXkgak9QCwa631dSKwT7":"Grüne Brille","5F0mIAjVhGaU3MC7uE25Dz":"Banana","55XKmLc9rZRrwjF13tUTbJ":"Öffne die Augen","2kZpdcfk6TAVfWamfiKmpR":"Gegen den Strom","08EhVPqEyaQgcsFAUCedoW":"Haus und Boot","3OdMGjk0Mj8s5VxRiTkKZE":"Tiefschlaf","50Ud3gmtiYRHOFILITM8oM":"Optik Anthem","5NBQ27xdjOZuyvOevpSZBd":"Arschficksong","2wGj42m9knQcUJIqDGP2i0":"#1","6BZREKlUgeZLJcAT0UVJMT":"König von Deutschland","3Vvn5JeFFNS5T2f7thVqYg":"Sneak Preview","09FVGGk1acFWLvuzbvHww7":"Wenn wir kommen","4T1tVhQahmAOvTF65lKq4o":"Mein Block","1A0b0yR0quuBByKQzASAvf":"Fuffies im Club","28kdj7ozHoGdQIU26IGuFf":"Soulmate","5crrBNchS0b8VtWfRpaZTp":"Die Eine 2005","4vcexiS2DvcnISLyXUHLzV":"NDW 2005","37nyrmQ91H0clFNmGFT7A6":"Von der Skyline zum Bordstein zurück","35DZulFkVczOekDIIzys3J":"Gheddo, Gheddo","701dAE5yxHQuhksxFU20H2":"Papa ist zurück","1mC06CRaWGhsWhdX99GJqL":"Prison Break Anthem (Ich glaub an dich)","1aT1DxAlxMPaNJ1rdN4V7c":"Wenn der Mond in mein Ghetto kracht","4Yc8QgcyA287WmqlHZWt9Z":"Hoffnung","7xT4N6XmaivLgGvzXWHSeV":"Unter der Sonne","0O40g422s304MMx6PjG7fg":"Kinder des Himmels","5yNZ4KTzc8YUL04rVPbBmN":"Wenn der Tag beginnt","3gMtLYMa2zGLHi3lAzz5yP":"Disco Pogo","1hqU66ZVePmWH3FPjc0kbw":"Nur die Starken überleben","63nmP9cBP3dT8cMQWNH3vt":"Präsidentenwahl","4YZxwEHbmwwgdvhAUDwFXz":"Zeiten ändern dich","4hgktvJIl0falCPy2FjxZ0":"Ja Ja Ve Ve","7pNTvZkyZPuesjbtefqq4h":"Dreh den Swag auf","229lNX8O1MwY1otR05jrlE":"Köln Kalk Ehrenmord","1luuVJuCIJU4wk2W4cAi0j":"Polosport Massenmord","5thfpDHbJL3JyrSjsnhiLY":"Mondfinsternis","7JJW2NnRNreoBleMiz5RPi":"Hinterhofjargon","4Mbvr9b9eUP5gXBaMoLTJ9":"König der Lügner","6kjBafSuYC8gClzfYu7T1t":"Chabos wissen wer der Babo ist","12R1sZhdnWoixTOZ4twaQN":"Bounce","4X5UoZNQhx10USjvN0XwRb":"Dynamit","2b3ZuwrGf50eDbmYKrWSE7":"Tief in die Nacht","73fcRZL4y2rhfjan9AdXk8":"Ritz Carlton","6X5AWHDA4RGnH1CaMQATU7":"Hollister Girl","59BhNnVBBXKhUjONX7jlrk":"Nuttööö","5ks8DZ3hJln0kCoKU8pVi7":"Bonn 17","1SDTUDXE7brNAO1N6LFXYx":"Halt Stop","6QNgcN2uHhXJG4RWDPyQQF":"Lass die Affen aus'm Zoo","2AXOg2WMjJt8Os7M3b589T":"Ich rolle mit meim Besten","32IKJthM7ARKvGBTZCE1Et":"Du bist Boss","4E8UuCXyyrKTiK0fSBHjQg":"JFK","0P9IO1y2I4burQjlZsmK3J":"Oder Ned","0leLRfHtVDBIPYRDadncJ2":"König der Alpen","1B2s3CpX2PV0YN7DkLSQ4b":"069","2mdsmcQiVTsX6NiPt52Elm":"Sosa","2k0cvQmGvHOuNmKo2rMYIj":"Iz da","2jfSOSYCYOo0etOR7BcuSy":"Goyard","5IvFgLGsq0LeEf09FuYfA2":"Trill","5wExm3smficf6dgIPjlqfX":"Hallelujah","2CCgh3vUSvAFotYavGL02W":"Ferrari","1vfVPUkl5v0HXWCEgQJHOf":"Bianco","1EC0kQfErxlCggOysDKve6":"Tropfen","2hIY4sjfMeKwXXh2LvhrMo":"Was du Liebe nennst","4vN2F1v7WphIUva3S6hwaT":"Mon chéri","3ZlnjH0lEMZHMdviRPyG34":"Chardonnay","2gaHAv8a7eDlsZra2g2J1l":"Grauer Beton","7pbU4vJyxiVvDSPmQ2FDf8":"Bier","3HKjsfDbwnGwMRN8pqPO2b":"Melodien","0oZyouBDStcJEUbTmSfys2":"Facetime","0uwtoHwfX5MH2LqpQaG6Ht":"Monica Bellucci","3a5qsP4xawpweFRXgzG6VP":"Chinchilla","38lQ7lYhN3eSWepnZHaiBF":"Rolex","0H9WHopZ62JeDaGau7REMw":"Shababs botten","3aLZ0s5ulFLcFCtIZQblpo":"Hauseingang","51YPOqWSkItMD6R0qEJ7WI":"Rollerblades","5U0xzeW4o26c0bzDxafwQ6":"Stolpersteine","6Y7ZEVr7lgO8FKGk2vZ2hi":"Nur zur Info","62NcEJBPuwVgohKoo8UL4g":"Flasche Luft","5CqkgDH8QZjSqqI3HmYxDD":"Airwaves","7d2M8bDOgwT8Kn5ensTxoL":"Regen im Sommer","0gThlZWwZWkDqRKGOz2CN1":"Angels Sippen","0Asp5uOfJGhbFWJnxM8ODz":"Audemars 69","79lc69ZXfL4WmJIzVSDmWT":"Extasy","0PD8TAuCUeikDT9EeEw26l":"RAMBO","1zLuIPhPHk14s4I5uOtqaS":"FREITAG","2PXsEQHgJxizSDNO4MOM7i":"Lonely","1jGKxip4DY5MDNGV9tT8O9":"Poseidon","2aJyxONT0lzqV2CWMHdBlt":"2000er","41KH81gnVWhIESbCRYluOQ":"Tokyo Drift","6icjOrzM57QrCAtBeWB5WF":"Powerade","70qTHH9uOgAflbi0BROI9K":"LOYALTY OVER LOVE","0j1whACQqbHlGzSZaUh6uR":"Sternenstaub","4taclmQm9wFcK4dKQjR5ny":"All Night","6tAKikIvnoWfUeZrfkopLL":"Friesenjung","3er1Vh8p84gqJe0mLtBmj9":"Rottweiler","5Z7SsHOmzIeWh38QOEdHQK":"Time","2NEtkjiFgrIHRNWJE9Hpa7":"pj nach zürich (Demo)","46blMHWBntl39gPyCRkWfz":"Alles oder Nix","72mTkKFJYy497k5cJhqVwi":"Nonstop","4xltR68cjUkYyjuYK09ESR":"RAHEEM"};
 function fillReveal(){
   if(!lastItem)return;
   $('r-img').src=(lastItem.album.images[1]||lastItem.album.images[0]||{}).url||'';
