@@ -72,6 +72,13 @@ a.ghost{display:block;text-align:center;text-decoration:none;color:var(--fg)}.ro
 #reveal .tx span{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden;overflow-wrap:anywhere;color:var(--dim);font-size:clamp(12px,3.6vw,14px);line-height:1.25;margin-top:3px}
 #s-play.rev #vinyl{display:none}
 a{color:var(--gelb)}
+.devchip{background:none;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#devsheet{position:fixed;inset:0;z-index:20;background:#000b;display:flex;align-items:flex-end;justify-content:center}
+#devsheet .sheet{width:100%;max-width:440px;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;display:flex;flex-direction:column;gap:12px;
+ padding:20px max(16px,env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left))}
+#devsheet .sheet>b{font-size:17px;text-align:center}
+#devlist{display:flex;flex-direction:column;gap:8px;max-height:45vh;overflow-y:auto}
+#devlist .ghost{text-align:left;min-height:52px;background:var(--bg)}
 </style>
 </head>
 <body>
@@ -111,11 +118,18 @@ a{color:var(--gelb)}
     <div class="barwrap" id="barwrap"><div class="bar"><i id="prog"></i><b id="knob"></b></div></div>
     <div class="time"><span id="tpos">0:00</span><span class="tag" id="status">Lädt …</span><span id="tdur">0:00</span></div>
   </div>
+  <button class="devchip" id="b-dev" hidden aria-label="Lautsprecher wechseln"></button>
     <div id="msg3" class="hint"></div>
   <div class="row" id="errbtns" hidden><button class="ghost" id="b-retry">Nochmal</button></div>
 </section>
 
 </main>
+<div id="devsheet" hidden><div class="sheet">
+  <b>Wo soll die Musik laufen?</b>
+  <div id="devhint" class="hint"></div>
+  <div id="devlist"></div>
+  <div class="row"><button class="ghost" id="dev-cancel">Abbrechen</button><button class="ghost" id="dev-reload">Liste aktualisieren</button></div>
+</div></div>
 <label id="hapt" aria-hidden="true" style="position:fixed;left:-99px;top:0;width:1px;height:1px;overflow:hidden;opacity:0"><input type="checkbox" switch tabindex="-1"></label>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
@@ -210,25 +224,74 @@ function goWake(){wake=true;location.href='spotify:';}
 async function getDevices(){
   try{const r=await api('GET','/me/player/devices');const d=await r.json();return d.devices||[];}catch(e){return [];}
 }
+/* Zuletzt genutzter Lautsprecher: Spotify vergisst das „aktive Gerät“ nach einer Weile,
+   die App merkt es sich deshalb selbst (ID und Name, weil manche Lautsprecher neue IDs bekommen). */
+function savedDev(){try{return JSON.parse(ls('zs_dev')||'null');}catch(e){return null;}}
+function saveDev(d){if(d&&d.id&&!d.is_restricted){const s=savedDev();if(!s||s.id!==d.id||s.name!==d.name)ls('zs_dev',JSON.stringify({id:d.id,name:d.name}));}}
+function devIcon(t){return /smartphone/i.test(t)?'📱':/computer/i.test(t)?'💻':/tv|cast/i.test(t)?'📺':'🔊';}
+let devAsk=null;
+/* Auswahlliste: löst mit dem gewählten Gerät auf, oder mit null bei „Abbrechen“ */
+function chooseDevice(list,hint){
+  if(devAsk)devAsk(null);
+  return new Promise(function(res){
+    devAsk=function(v){devAsk=null;$('devsheet').hidden=true;res(v);};
+    function draw(l){
+      const box=$('devlist');box.textContent='';
+      l.forEach(function(d){const b=document.createElement('button');b.className='ghost';b.textContent=devIcon(d.type)+'  '+d.name+(d.is_active?'  · aktiv':'');b.onclick=function(){devAsk&&devAsk(d);};box.appendChild(b);});
+      if(!l.length){const e=document.createElement('div');e.className='hint';e.textContent='Kein Gerät gefunden.';box.appendChild(e);}
+    }
+    $('devhint').textContent=hint||'Wähle aus, wo die Musik laufen soll.';
+    draw(list);$('devsheet').hidden=false;
+    $('dev-reload').onclick=async function(){$('dev-reload').disabled=true;draw((await getDevices()).filter(x=>!x.is_restricted));$('dev-reload').disabled=false;};
+    $('dev-cancel').onclick=function(){devAsk&&devAsk(null);};
+  });
+}
+async function pickDevice(){
+  const list=(await getDevices()).filter(x=>!x.is_restricted);
+  if(!list.length)throw new Error('NODEVICE');
+  const s=savedDev();
+  const hit=list.find(x=>x.is_active)||(s&&(list.find(x=>x.id===s.id)||list.find(x=>x.name===s.name)));
+  if(hit)return hit;
+  if(list.length===1&&!s)return list[0];
+  /* Mehrere Geräte oder der gemerkte Lautsprecher fehlt: nicht raten, sondern fragen */
+  status('Gerät wählen');$('vinyl').classList.remove('spin');
+  const hint=s?'„'+s.name+'“ ist gerade nicht erreichbar. Öffne Spotify, wähle den Lautsprecher dort einmal aus und tippe dann „Liste aktualisieren“, oder wähle ein anderes Gerät.':'';
+  const d=await chooseDevice(list,hint);
+  if(!d)throw new Error('CANCEL');
+  status('Startet …');$('vinyl').classList.add('spin');
+  return d;
+}
 async function startTrack(id,startMs){
   const uris=['spotify:track:'+id],body={uris};if(startMs>0)body.position_ms=Math.round(startMs);
-  let dev=null,last=0;
+  let dev=null;
   for(let attempt=0;attempt<4;attempt++){
     const r=await api('PUT','/me/player/play'+(dev?'?device_id='+dev:''),body);
-    last=r.status;
     if(r.ok||r.status===204)return;
-    if(r.status===403)throw new Error('PREMIUM');
     if(r.status===401)throw new Error('NOLOGIN');
-    if(r.status!==404)throw new Error('HTTP '+r.status);
+    if(r.status===403){
+      /* „Restriction violated“: aktives Gerät lässt sich nicht fernsteuern -> anderes wählen */
+      let j={};try{j=await r.json();}catch(e){}
+      const restricted=/restrict/i.test((j.error&&j.error.message)||'');
+      if(!restricted)throw new Error('PREMIUM');
+      if(dev)throw new Error('RESTRICTED');
+    }
+    else if(r.status!==404)throw new Error('HTTP '+r.status);
     /* 404: kein aktives Gerät, Gerät schläft oder ist nicht erreichbar */
-    const list=await getDevices();
-    const pick=list.find(x=>x.is_active)||list.find(x=>/smartphone/i.test(x.type))||list[0];
-    if(!pick)throw new Error('NODEVICE');
-    dev=pick.id;
+    const pick=await pickDevice();
+    dev=pick.id;saveDev(pick);
     try{await api('PUT','/me/player',{device_ids:[dev],play:false});}catch(e){}
     await sleep(900+attempt*700);
   }
   throw new Error('DEVICE404');
+}
+/* Gerät während des Spiels wechseln */
+async function switchDevice(){
+  const list=(await getDevices()).filter(x=>!x.is_restricted);
+  const d=await chooseDevice(list,'Wähle, wo die Musik laufen soll.');
+  if(!d)return;
+  saveDev(d);$('b-dev').textContent=devIcon(d.type)+'  '+d.name;
+  try{await api('PUT','/me/player',{device_ids:[d.id],play:true});}catch(e){}
+  setTimeout(refresh,1200);
 }
 async function playTrack(id,startMs,keep){
   stopCam();clearInterval(poll);clearTimeout(silTimer);
@@ -245,6 +308,8 @@ async function playTrack(id,startMs,keep){
     if(e.message==='NODEVICE'||e.message==='DEVICE404'){diagnose(id);return;}
     status('Fehler','warn');setMain('play');$('errbtns').hidden=false;
     if(e.message==='NETWORK')pmsg('Keine Verbindung zu Spotify. Prüfe dein Internet und tippe „Nochmal“.','err');
+    else if(e.message==='CANCEL')pmsg('Kein Gerät gewählt. Tippe „Nochmal“, um eins auszuwählen.','info');
+    else if(e.message==='RESTRICTED')pmsg('Dieses Gerät lässt sich nicht fernsteuern. Tippe „Nochmal“ und wähle ein anderes.','err');
     else if(e.message==='PREMIUM')pmsg('Spotify meldet: Premium nötig, oder die App ist nicht für dein Konto freigeschaltet (Dashboard → User Management).','err');
     else pmsg('Konnte nicht starten ('+e.message+').','err');
     return;
@@ -292,6 +357,7 @@ async function refresh(){
   }
   if(!gotState){woke=null;pmsg('');$('errbtns').hidden=true;}
   lastItem=s.item;gotState=true;wake=false;isPlaying=!!s.is_playing;
+  if(s.device){saveDev(s.device);const t=devIcon(s.device.type)+'  '+s.device.name;if($('b-dev').textContent!==t)$('b-dev').textContent=t;$('b-dev').hidden=false;}
   dur=s.item.duration_ms;pos=s.progress_ms||0;
   if(!isPlaying&&pos>=dur-1500){enterSilence(dur,true);return;}
   if(!dragging){setBar(pos/dur);$('tpos').textContent=fmt(pos);}
@@ -364,6 +430,7 @@ $('b-toggle').onclick=async function(){
   await togglePlay();
 };
 document.querySelectorAll('.mbtn').forEach(function(b){b.onclick=togglePlay;});
+$('b-dev').onclick=switchDevice;
 /* Auflösen nur durch Gedrückthalten (0,6 s), Verbergen per Tipp */
 function setReveal(on){
   $('reveal').hidden=!on;$('s-play').classList.toggle('rev',on);
