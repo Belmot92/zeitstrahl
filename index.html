@@ -249,17 +249,11 @@ function chooseDevice(list,hint){
 async function pickDevice(){
   const list=(await getDevices()).filter(x=>!x.is_restricted);
   if(!list.length)throw new Error('NODEVICE');
-  const s=savedDev();
-  const hit=list.find(x=>x.is_active)||(s&&(list.find(x=>x.id===s.id)||list.find(x=>x.name===s.name)));
-  if(hit)return hit;
-  if(list.length===1&&!s)return list[0];
-  /* Mehrere Geräte oder der gemerkte Lautsprecher fehlt: nicht raten, sondern fragen */
-  status('Gerät wählen');$('vinyl').classList.remove('spin');
-  const hint=s?'„'+s.name+'“ ist gerade nicht erreichbar. Öffne Spotify, wähle den Lautsprecher dort einmal aus und tippe dann „Liste aktualisieren“, oder wähle ein anderes Gerät.':'';
-  const d=await chooseDevice(list,hint);
-  if(!d)throw new Error('CANCEL');
-  status('Startet …');$('vinyl').classList.add('spin');
-  return d;
+  /* Reihenfolge: aktives Gerät -> dieses Handy -> zuletzt genutztes Gerät -> erstes.
+     Auf dem Handy entscheidet iOS selbst, ob der Ton über Lautsprecher, Kopfhörer, Bluetooth oder AirPlay kommt. */
+  const s=savedDev(),phones=list.filter(x=>/smartphone/i.test(x.type));
+  const same=x=>s&&(x.id===s.id||x.name===s.name);
+  return list.find(x=>x.is_active)||phones.find(same)||phones[0]||list.find(same)||list[0];
 }
 async function startTrack(id,startMs){
   const uris=['spotify:track:'+id],body={uris};if(startMs>0)body.position_ms=Math.round(startMs);
