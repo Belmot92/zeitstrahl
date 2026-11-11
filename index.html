@@ -220,7 +220,12 @@ function status(t,k){const s=$('status');s.textContent=t;s.className='tag'+(k?' 
 /* Hauptknopf: pause | play | wake */
 function setMain(m){mode=m;const b=$('b-toggle');b.classList.toggle('wake',m==='wake');b.textContent=m==='wake'?'SPOTIFY WECKEN':m==='pause'?'❚❚ PAUSE':'▶ WEITER';}
 function setMusic(){document.querySelectorAll('.mbtn').forEach(function(b){b.hidden=!current||!gotState;b.textContent=isPlaying?'❚❚ Musik aus':'▶ Musik an';});}
-function goWake(){wake=true;location.href='spotify:';}
+let jump=function(u){location.href=u;};
+/* Wecken = Spotify mit dem stillen Titel öffnen. Nur geöffnet, aber ohne Wiedergabe, schläft Spotify
+   im Hintergrund sofort wieder ein und nimmt keine Befehle an. Läuft dort etwas, bleibt das Handy steuerbar. */
+const WAKE_URI='spotify:track:'+SILENCE[0];
+let fromWake=false;
+function goWake(){wake=true;jump(WAKE_URI);}
 async function getDevices(){
   try{const r=await api('GET','/me/player/devices');const d=await r.json();return d.devices||[];}catch(e){return [];}
 }
@@ -247,18 +252,23 @@ function chooseDevice(list,hint){
   });
 }
 async function pickDevice(){
-  const list=(await getDevices()).filter(x=>!x.is_restricted);
-  if(!list.length)throw new Error('NODEVICE');
-  /* Reihenfolge: aktives Gerät -> dieses Handy -> zuletzt genutztes Gerät -> erstes.
-     Auf dem Handy entscheidet iOS selbst, ob der Ton über Lautsprecher, Kopfhörer, Bluetooth oder AirPlay kommt. */
-  const s=savedDev(),phones=list.filter(x=>/smartphone/i.test(x.type));
-  const same=x=>s&&(x.id===s.id||x.name===s.name);
-  return list.find(x=>x.is_active)||phones.find(same)||phones[0]||list.find(same)||list[0];
+  /* Reihenfolge: aktives Gerät -> dieses Handy. Ein Mac oder PC, auf dem Spotify nur im Hintergrund offen ist,
+     wird nie ungefragt genommen. Auf dem Handy entscheidet iOS, ob der Ton über Lautsprecher, Kopfhörer,
+     Bluetooth oder AirPlay kommt. Direkt nach dem Wecken braucht Spotify ein paar Sekunden bis zur Anmeldung. */
+  const tries=fromWake?5:1;
+  for(let i=0;i<tries;i++){
+    const list=(await getDevices()).filter(x=>!x.is_restricted);
+    const s=savedDev(),phones=list.filter(x=>/smartphone/i.test(x.type));
+    const hit=list.find(x=>x.is_active)||phones.find(x=>s&&(x.id===s.id||x.name===s.name))||phones[0];
+    if(hit)return hit;
+    if(i<tries-1)await sleep(1000);
+  }
+  throw new Error('NODEVICE');
 }
 async function startTrack(id,startMs){
   const uris=['spotify:track:'+id],body={uris};if(startMs>0)body.position_ms=Math.round(startMs);
   let dev=null;
-  for(let attempt=0;attempt<4;attempt++){
+  for(let attempt=0;attempt<3;attempt++){
     const r=await api('PUT','/me/player/play'+(dev?'?device_id='+dev:''),body);
     if(r.ok||r.status===204)return;
     if(r.status===401)throw new Error('NOLOGIN');
@@ -274,7 +284,7 @@ async function startTrack(id,startMs){
     const pick=await pickDevice();
     dev=pick.id;saveDev(pick);
     try{await api('PUT','/me/player',{device_ids:[dev],play:false});}catch(e){}
-    await sleep(900+attempt*700);
+    await sleep(800+attempt*600);
   }
   throw new Error('DEVICE404');
 }
@@ -316,13 +326,13 @@ async function playTrack(id,startMs,keep){
 function diagnose(id){
   clearInterval(poll);
   wake=true;$('vinyl').classList.remove('spin');setMain('wake');status('Spotify schläft','warn');
-  const manual='Tippe auf „Spotify wecken“ und wechsle danach zurück zu Safari. Der Song startet dann von selbst.';
+  const manual='Tippe auf „Spotify wecken“. In Spotify öffnet sich ein stiller Titel: Starte ihn mit ▶, falls er nicht schon läuft, und wechsle zurück zu Safari. Der Song startet dann von selbst.';
   if(woke!==id){
     woke=id;
-    pmsg('Spotify wird geweckt. Wechsle danach zurück zu Safari, der Song startet dann von selbst.','info');
+    pmsg('Spotify wird geweckt. In Spotify öffnet sich ein stiller Titel: Starte ihn mit ▶, falls er nicht schon läuft, und wechsle dann zurück zu Safari.','info');
     setTimeout(function(){
       if(current!==id||gotState)return;
-      location.href='spotify:';
+      jump(WAKE_URI);
       /* Seite nach 2 s noch sichtbar = Safari hat den Sprung blockiert */
       setTimeout(function(){if(document.visibilityState==='visible'&&current===id&&!gotState)pmsg(manual,'info');},2000);
     },500);
@@ -331,7 +341,7 @@ function diagnose(id){
   pmsg(manual,'info');$('errbtns').hidden=false;
 }
 document.addEventListener('visibilitychange',function(){
-  if(document.visibilityState==='visible'&&wake&&current&&!gotState&&!screens.play.hidden){wake=false;setTimeout(function(){playTrack(current,resumeAt,true);},600);}
+  if(document.visibilityState==='visible'&&wake&&current&&!gotState&&!screens.play.hidden){wake=false;fromWake=true;setTimeout(function(){playTrack(current,resumeAt,true).finally(function(){fromWake=false;});},600);}
 });
 async function refresh(){
   let r;
@@ -505,7 +515,7 @@ layout();
   const failed=await handleRedirect();if(failed)return;
   if(ls('zs_tok'))show('start');else needLogin();
 })();
-window.__app={parseTrack:parseTrack,playTrack:playTrack};
+window.__app={parseTrack:parseTrack,playTrack:playTrack,setJump:function(f){jump=f;}};
 })();
 </script>
 </body>
