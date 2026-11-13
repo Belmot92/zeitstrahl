@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="theme-color" content="#0b0b0c">
 <title>TIMSTER</title>
-<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#0b0b0c;--panel:#17171a;--line:#2a2a2f;--fg:#f4f1ea;--dim:#8d8d96;--gelb:#b6ff3c;--pink:#ff3d81}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -13,8 +12,11 @@ html,body{touch-action:pan-x pan-y;-webkit-text-size-adjust:100%}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
 body{display:flex;flex-direction:column;padding:calc(env(safe-area-inset-top,0px) + 30px) max(16px,env(safe-area-inset-right)) max(14px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));overflow-y:auto}
 .logo{margin:6px auto 0;width:min(100%,340px);text-align:center}
-.logo h1{margin:0;font-family:Comfortaa,'Varela Round',system-ui,sans-serif;font-weight:700;font-size:clamp(36px,min(13.5vw,7.4dvh),60px);line-height:1;letter-spacing:.04em;color:transparent;-webkit-text-stroke:2px #eaffd0;
- text-shadow:0 0 6px #b6ff3c,0 0 16px #6ee00a,0 0 34px #4cc400}
+.logo h1{margin:0;line-height:0}
+.logo svg{display:block;margin:0 auto;width:min(100%,calc(clamp(36px,min(13.5vw,7.4dvh),60px) * 4.9));height:auto;overflow:visible;
+ filter:drop-shadow(0 0 3px #b6ff3c) drop-shadow(0 0 8px #6ee00a) drop-shadow(0 0 16px #4cc400)}
+.logo svg path{fill:none;stroke:#eaffd0;stroke-linejoin:round}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .logo p{margin:10px 0 0;color:#fff;font-weight:500;font-size:11px;letter-spacing:.3em;text-transform:uppercase}
 .tl{position:relative;height:22px;margin:min(14px,1.6dvh) 6px 0;filter:drop-shadow(0 0 5px #6ee00a)}
 .tl::before{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:#b6ff3c;border-radius:2px}
@@ -73,16 +75,51 @@ a.ghost{display:block;text-align:center;text-decoration:none;color:var(--fg)}.ro
 #s-play.rev #vinyl{display:none}
 a{color:var(--gelb)}
 .devchip{background:none;border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--dim);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#devsheet{position:fixed;inset:0;z-index:20;background:#000b;display:flex;align-items:flex-end;justify-content:center}
+#devsheet,#rsheet{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:center;background:#000b;transition:background-color .2s ease}
+#devsheet{z-index:20}#rsheet{z-index:30}
+#devsheet .sheet,#rsheet .sheet{transform:translateY(0);transition:transform .3s cubic-bezier(.32,.72,0,1);will-change:transform;touch-action:pan-y}
+#devsheet.off,#rsheet.off{background:#0000}
+#devsheet.off .sheet,#rsheet.off .sheet{transform:translateY(100%)}
+#devsheet.closing .sheet,#rsheet.closing .sheet{transition:transform .2s cubic-bezier(.4,0,1,1)}
+.dragging .sheet{transition:none!important}
 #devsheet .sheet{width:100%;max-width:440px;background:var(--panel);border-top:1px solid var(--line);border-radius:18px 18px 0 0;display:flex;flex-direction:column;gap:12px;
  padding:20px max(16px,env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left))}
 #devsheet .sheet>b{font-size:17px;text-align:center}
 #devlist{display:flex;flex-direction:column;gap:8px;max-height:45vh;overflow-y:auto}
 #devlist .ghost{text-align:left;min-height:52px;background:var(--bg)}
+/* Spielregeln */
+.chips{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;width:100%}
+.rlink{background:none;border:0;color:var(--gelb);font-size:15px;font-weight:600;padding:10px;width:auto}
+#rsheet{background:var(--bg)}#rsheet.off{background:#0000}
+#rsheet .sheet{width:100%;max-width:none;height:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;background:var(--bg);display:flex;flex-direction:column;justify-content:center;gap:12px;
+ padding:calc(env(safe-area-inset-top,0px) + 10px) max(20px,env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom,0px)) max(20px,env(safe-area-inset-left))}
+#rsheet .sheet>*{width:100%;max-width:440px;margin-left:auto;margin-right:auto}
+#rsheet .grab{position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);left:0;right:0;width:40px}
+#rs-ok{padding:14px;flex:none}
+#rsheet .grab{width:40px;height:5px;border-radius:3px;background:var(--line);align-self:center;flex:none}
+#rsheet h2{margin:0;font-size:19px;letter-spacing:.02em}
+.rcards{display:flex;gap:7px;justify-content:center;align-items:flex-end;padding:10px 0 0}
+.rcards div{width:40px;height:58px;border-radius:7px;display:grid;place-items:center;font-weight:800;font-size:12px;color:#111;flex:none}
+.rcards .new{background:#1d1d22;border:2px dashed var(--gelb);color:var(--gelb);transform:translateY(-9px)}
+.goal{background:#b6ff3c14;border:1px solid #b6ff3c55;border-radius:12px;padding:9px 12px;font-size:14px;line-height:1.45}
+.goal b{color:var(--gelb)}
+.flow{display:flex;align-items:center;justify-content:center;gap:6px;font-size:13.5px;font-weight:700;flex-wrap:nowrap}
+.flow span{background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:6px 11px;white-space:nowrap}
+.flow i{color:var(--dim);font-style:normal}
+.sub{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);display:flex;justify-content:space-between}
+.tok{display:flex;flex-direction:column}
+.tok>div{display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;padding:10px 0;border-top:1px solid var(--line)}
+.tok>div:last-child{border-bottom:1px solid var(--line)}
+.tok em{font-style:normal;font-size:12px;font-weight:800;padding:3px 0;border-radius:999px;background:#b6ff3c22;color:var(--gelb);text-align:center;margin-top:1px}
+.tok em.minus{background:#ff3d8122;color:#ff7aa8}
+.tok p{margin:0;font-size:13px;line-height:1.4;color:#cfccc5}
+.tok b{color:var(--fg)}
+.dec{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:12px;text-align:center}
+.dec span{border-radius:8px;padding:5px 0;color:#111;font-weight:700}
 </style>
 </head>
 <body>
-<header><div class="logo"><h1>TIMSTER</h1><p>Die Deutschrap Edition</p><div class="tl"><b></b><b></b></div><div class="yrs"><span>1995</span><span>2026</span></div></div></header>
+<header><div class="logo"><h1><span class="vh">TIMSTER</span><svg viewBox="-21 -826 4910 872" aria-hidden="true"><path stroke-width="36" d="M331 0Q309 0 294 -15Q279 -30 279 -52V-685H63Q42 -685 28 -698Q15 -712 15 -733Q15 -754 28 -768Q42 -781 63 -781H598Q619 -781 632 -768Q646 -754 646 -733Q646 -712 632 -698Q619 -685 598 -685H383V-52Q383 -30 368 -15Q353 0 331 0ZM853 0Q831 0 816 -15Q801 -30 801 -52V-729Q801 -752 816 -766Q831 -781 853 -781Q876 -781 890 -766Q905 -752 905 -729V-52Q905 -30 890 -15Q876 0 853 0ZM1197 0Q1175 0 1160 -15Q1145 -30 1145 -52V-729Q1145 -752 1160 -766Q1175 -781 1197 -781Q1227 -781 1243 -753L1540 -158L1829 -753Q1845 -781 1875 -781Q1897 -781 1912 -766Q1927 -752 1927 -729V-52Q1927 -30 1912 -15Q1896 0 1875 0Q1853 0 1838 -15Q1823 -30 1823 -52V-549L1581 -56Q1564 -30 1536 -30Q1503 -30 1488 -61L1249 -540V-52Q1249 -30 1234 -15Q1219 0 1197 0ZM2415 10Q2351 10 2293 -10Q2235 -30 2192 -66Q2149 -102 2129 -149Q2119 -170 2130 -188Q2140 -206 2165 -211Q2183 -215 2200 -206Q2218 -196 2227 -177Q2239 -152 2266 -131Q2294 -110 2333 -97Q2372 -84 2415 -84Q2463 -84 2504 -99Q2544 -114 2569 -142Q2594 -171 2594 -213Q2594 -266 2552 -308Q2511 -350 2416 -360Q2292 -372 2221 -433Q2150 -494 2150 -584Q2150 -650 2187 -696Q2224 -742 2288 -766Q2351 -790 2429 -790Q2490 -790 2536 -773Q2581 -756 2615 -726Q2649 -696 2674 -655Q2688 -633 2686 -614Q2683 -594 2666 -583Q2647 -571 2625 -578Q2603 -585 2592 -604Q2576 -633 2553 -653Q2530 -673 2499 -684Q2468 -696 2426 -696Q2352 -697 2302 -668Q2252 -640 2252 -581Q2252 -551 2268 -524Q2283 -496 2324 -476Q2366 -456 2444 -448Q2563 -436 2630 -376Q2696 -315 2696 -216Q2696 -159 2672 -117Q2649 -75 2610 -46Q2570 -18 2520 -4Q2469 10 2415 10ZM3126 0Q3104 0 3089 -15Q3074 -30 3074 -52V-685H2858Q2837 -685 2824 -698Q2810 -712 2810 -733Q2810 -754 2824 -768Q2837 -781 2858 -781H3393Q3414 -781 3428 -768Q3441 -754 3441 -733Q3441 -712 3428 -698Q3414 -685 3393 -685H3178V-52Q3178 -30 3163 -15Q3148 0 3126 0ZM3648 0Q3626 0 3611 -15Q3596 -30 3596 -52V-729Q3596 -752 3611 -766Q3626 -781 3648 -781H4100Q4123 -781 4137 -768Q4151 -754 4151 -732Q4151 -711 4137 -698Q4123 -685 4100 -685H3700V-442H3987Q4010 -442 4024 -428Q4038 -415 4038 -394Q4038 -373 4024 -360Q4010 -346 3987 -346H3700V-96H4100Q4123 -96 4137 -83Q4151 -70 4151 -49Q4151 -27 4137 -14Q4123 0 4100 0ZM4388 0Q4366 0 4351 -15Q4336 -30 4336 -52V-729Q4336 -752 4351 -766Q4366 -781 4388 -781H4568Q4643 -781 4701 -750Q4759 -718 4792 -663Q4824 -608 4824 -535Q4824 -467 4792 -414Q4759 -361 4701 -331Q4696 -328 4690 -326L4843 -80Q4861 -51 4848 -26Q4835 0 4803 0Q4789 0 4778 -6Q4766 -12 4758 -25L4586 -301Q4577 -301 4568 -301H4440V-52Q4440 -30 4426 -15Q4411 0 4388 0ZM4440 -397H4568Q4614 -397 4649 -414Q4684 -432 4704 -464Q4724 -495 4724 -535Q4724 -579 4704 -613Q4684 -647 4649 -666Q4614 -685 4568 -685H4440Z"/></svg></h1><p>Die Deutschrap Edition</p><div class="tl"><b></b><b></b></div><div class="yrs"><span>1995</span><span>2026</span></div></div></header>
 <main>
 
 <section class="screen" id="s-setup" hidden>
@@ -94,6 +131,7 @@ a{color:var(--gelb)}
 <section class="screen" id="s-start" hidden>
   <div class="stage"><div class="vwrap"><div class="vinyl"></div></div></div>
   <button class="big" id="b-scan">KARTE SCANNEN</button>
+  <button class="rlink" id="b-rules1">📖  Spielregeln</button>
   <button class="ghost mbtn" id="b-music2" hidden>❚❚ Musik aus</button>
   <div id="msg"></div>
   <button class="ghost" id="b-logout" style="background:none;border:0;color:var(--dim);font-size:12px">Spotify-Verbindung trennen</button>
@@ -118,12 +156,27 @@ a{color:var(--gelb)}
     <div class="barwrap" id="barwrap"><div class="bar"><i id="prog"></i><b id="knob"></b></div></div>
     <div class="time"><span id="tpos">0:00</span><span class="tag" id="status">Lädt …</span><span id="tdur">0:00</span></div>
   </div>
-  <button class="devchip" id="b-dev" hidden aria-label="Lautsprecher wechseln"></button>
+  <div class="chips"><button class="devchip" id="b-dev" hidden aria-label="Lautsprecher wechseln"></button><button class="devchip" id="b-rules2">📖  Regeln</button></div>
     <div id="msg3" class="hint"></div>
   <div class="row" id="errbtns" hidden><button class="ghost" id="b-retry">Nochmal</button></div>
 </section>
 
 </main>
+<div id="rsheet" hidden role="dialog" aria-modal="true" aria-labelledby="rs-h"><div class="sheet">
+  <div class="grab"></div>
+  <div class="rcards" aria-hidden="true"><div style="background:#ff8c26">1998</div><div class="new">?</div><div style="background:#73f2ff">2014</div><div style="background:#b2ff19">2023</div></div>
+  <h2 id="rs-h">So wird gespielt</h2>
+  <div class="goal"><b>Ziel:</b> Als Erster <b>10 Karten</b> richtig in der Zeitleiste.</div>
+  <div class="flow"><span>Scannen</span><i>→</i><span>Einordnen</span><i>→</i><span>Umdrehen</span></div>
+  <div class="sub"><span>TIMSTER-Token</span><span>max. 5</span></div>
+  <div class="tok">
+    <div><em>+1</em><p><b>Verdienen:</b> Im eigenen Zug Titel &amp; Interpret nennen, auch wenn das Jahr falsch liegt.</p></div>
+    <div><em class="minus">−1</em><p><b>Überspringen:</b> Im eigenen Zug Song ablegen, neue Karte scannen.</p></div>
+    <div><em class="minus">−1</em><p><b>Klauen:</b> Im fremden Zug vor dem Umdrehen „TIMSTER!“ rufen und Token an die richtige Stelle beim Gegner legen. Liegst nur du richtig, gehört dir die Karte, sonst ist dein Token weg.</p></div>
+    <div><em class="minus">−3</em><p><b>Kaufen:</b> Jederzeit 1 Karte ungesehen in die eigene Zeitleiste legen.</p></div>
+  </div>
+  <button class="big" id="rs-ok">ALLES KLAR</button>
+</div></div>
 <div id="devsheet" hidden><div class="sheet">
   <b>Wo soll die Musik laufen?</b>
   <div id="devhint" class="hint"></div>
@@ -234,19 +287,40 @@ async function getDevices(){
 function savedDev(){try{return JSON.parse(ls('zs_dev')||'null');}catch(e){return null;}}
 function saveDev(d){if(d&&d.id&&!d.is_restricted){const s=savedDev();if(!s||s.id!==d.id||s.name!==d.name)ls('zs_dev',JSON.stringify({id:d.id,name:d.name}));}}
 function devIcon(t){return /smartphone/i.test(t)?'📱':/computer/i.test(t)?'💻':/tv|cast/i.test(t)?'📺':'🔊';}
+/* Blätter von unten: hereingleiten (0,3 s), raus (0,2 s), nach unten wischen schließt */
+function openSheet(el){
+  clearTimeout(el._t);el.classList.remove('closing');el.classList.add('off');el.hidden=false;
+  el.offsetHeight;                                         /* Startlage erzwingen, dann animieren */
+  el.classList.remove('off');
+}
+function closeSheet(el,done){
+  if(el.hidden){done&&done();return;}
+  const sh=el.querySelector('.sheet');sh.style.transform='';
+  el.classList.add('closing','off');
+  clearTimeout(el._t);el._t=setTimeout(function(){el.hidden=true;el.classList.remove('closing');done&&done();},210);
+}
+function swipeClose(el,onClose){
+  const sh=el.querySelector('.sheet');let y0=null,dy=0,t0=0;
+  sh.addEventListener('touchstart',function(e){if(e.touches.length!==1||sh.scrollTop>0){y0=null;return;}y0=e.touches[0].clientY;dy=0;t0=Date.now();},{passive:true});
+  sh.addEventListener('touchmove',function(e){if(y0===null)return;dy=Math.max(0,e.touches[0].clientY-y0);
+    if(dy>4){el.classList.add('dragging');sh.style.transform='translateY('+dy+'px)';}},{passive:true});
+  sh.addEventListener('touchend',function(){if(y0===null)return;el.classList.remove('dragging');
+    const fast=dy>40&&dy/(Date.now()-t0)>0.5;y0=null;
+    if(dy>110||fast)onClose();else sh.style.transform='';},{passive:true});
+}
 let devAsk=null;
 /* Auswahlliste: löst mit dem gewählten Gerät auf, oder mit null bei „Abbrechen“ */
 function chooseDevice(list,hint){
   if(devAsk)devAsk(null);
   return new Promise(function(res){
-    devAsk=function(v){devAsk=null;$('devsheet').hidden=true;res(v);};
+    devAsk=function(v){devAsk=null;closeSheet($('devsheet'));res(v);};
     function draw(l){
       const box=$('devlist');box.textContent='';
       l.forEach(function(d){const b=document.createElement('button');b.className='ghost';b.textContent=devIcon(d.type)+'  '+d.name+(d.is_active?'  · aktiv':'');b.onclick=function(){devAsk&&devAsk(d);};box.appendChild(b);});
       if(!l.length){const e=document.createElement('div');e.className='hint';e.textContent='Kein Gerät gefunden.';box.appendChild(e);}
     }
     $('devhint').textContent=hint||'Wähle aus, wo die Musik laufen soll.';
-    draw(list);$('devsheet').hidden=false;
+    draw(list);openSheet($('devsheet'));
     $('dev-reload').onclick=async function(){$('dev-reload').disabled=true;draw((await getDevices()).filter(x=>!x.is_restricted));$('dev-reload').disabled=false;};
     $('dev-cancel').onclick=function(){devAsk&&devAsk(null);};
   });
@@ -435,6 +509,14 @@ $('b-toggle').onclick=async function(){
 };
 document.querySelectorAll('.mbtn').forEach(function(b){b.onclick=togglePlay;});
 $('b-dev').onclick=switchDevice;
+/* Spielregeln: Startseite + Spiel-Screen. Musik läuft weiter. */
+function rules(open){const el=$('rsheet');if(open){el.querySelector('.sheet').scrollTop=0;openSheet(el);$('rs-ok').focus({preventScroll:true});}else closeSheet(el);}
+swipeClose($('rsheet'),function(){rules(false);});
+swipeClose($('devsheet'),function(){devAsk&&devAsk(null);});
+$('b-rules1').onclick=function(){rules(true);};$('b-rules2').onclick=function(){rules(true);};
+$('rs-ok').onclick=function(){rules(false);};
+$('rsheet').addEventListener('click',function(e){if(e.target===this)rules(false);});
+document.addEventListener('keydown',function(e){if(e.key==='Escape'&&!$('rsheet').hidden)rules(false);});
 /* Auflösen nur durch Gedrückthalten (0,6 s), Verbergen per Tipp */
 function setReveal(on){
   $('reveal').hidden=!on;$('s-play').classList.toggle('rev',on);
